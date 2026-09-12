@@ -1068,6 +1068,12 @@ pub(crate) struct SessionActor {
     pub(crate) turn_summary_enabled: bool,
     /// Early-session title-refresh gate, resolved once at spawn (defaults to `turn_summary_enabled`; see `Config::resolve_title_refresh`).
     pub(crate) title_refresh_enabled: bool,
+    /// Real-user turn counts that refresh the auto title, then freeze.
+    /// Resolved once at spawn from `[session] title_refresh_turns` (default `[3, 6]`).
+    pub(crate) title_refresh_turns: Vec<usize>,
+    /// Optional override for the title-generation prompt.
+    /// Resolved once at spawn from `[session] title_prompt`.
+    pub(crate) title_prompt: Option<String>,
     /// The in-flight title-refresh side-call, if any.
     /// Only one runs at a time (a newer completion skips rather than aborts); aborted on rename, rewind, and shutdown.
     /// See `maybe_refresh_title`.
@@ -1075,7 +1081,7 @@ pub(crate) struct SessionActor {
     /// Generation of the currently registered title-refresh task.
     /// A finishing task whose generation no longer matches must not persist its result.
     pub(crate) title_refresh_generation: std::cell::Cell<u64>,
-    /// Index into `TITLE_REFRESH_TURNS` of the next checkpoint to apply.
+    /// Index into `title_refresh_turns` of the next checkpoint to apply.
     /// Advanced when an attempt completes (success *or* failure, with catch-up past skipped checkpoints), and persisted to the watermark.
     /// Once it reaches the end the title is frozen.
     pub(crate) next_title_refresh_idx: std::cell::Cell<usize>,

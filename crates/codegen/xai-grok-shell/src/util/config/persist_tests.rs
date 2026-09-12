@@ -363,6 +363,14 @@ fn merge_section_session_default_does_not_leak_load_envrc() {
             session.get("auto_compact_threshold_percent").is_none(),
             "default auto_compact_threshold_percent must not be serialized either"
         );
+        assert!(
+            session.get("title_refresh_turns").is_none(),
+            "default title_refresh_turns must not be serialized"
+        );
+        assert!(
+            session.get("title_prompt").is_none(),
+            "default title_prompt must not be serialized"
+        );
     }
 }
 /// Companion to the above: the user explicitly commits a non-default `auto_compact_threshold_percent`.
@@ -377,6 +385,7 @@ fn merge_section_session_explicit_value_does_not_drag_load_envrc() {
     let cfg = crate::agent::config::SessionConfig {
         auto_compact_threshold_percent: Some(70),
         load_envrc: None,
+        ..Default::default()
     };
     merge_section(&mut table, "session", &cfg);
     let session = table.get("session").unwrap().as_table().unwrap();
@@ -850,6 +859,7 @@ fn merge_section_session_load_envrc_does_not_drag_auto_compact() {
     let cfg = crate::agent::config::SessionConfig {
         load_envrc: Some(true),
         auto_compact_threshold_percent: None,
+        ..Default::default()
     };
     merge_section(&mut table, "session", &cfg);
     let s = table.get("session").unwrap().as_table().unwrap();

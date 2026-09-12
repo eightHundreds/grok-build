@@ -84,7 +84,7 @@ pub(crate) struct SummaryPatch {
     /// Ignored when `generated_title` is also set.
     pub generated_title_if_absent: Option<String>,
     /// Overwrite an existing *auto* title with a freshly regenerated one, but never a manual `/rename`.
-    /// Used by the early-session title refresh (turns 3 and 6).
+    /// Used by the early-session title refresh (configured turns, default 3 and 6).
     /// Ignored when `generated_title` (manual) is also set.
     pub generated_title_regenerate: Option<String>,
     /// `/rename --auto`: clear the manual pin.

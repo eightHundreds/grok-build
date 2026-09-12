@@ -280,6 +280,8 @@ pub(super) async fn make_replay_send_update_fixture() -> ReplaySendUpdateFixture
         next_title_refresh_idx: std::cell::Cell::new(0),
         turn_summary_enabled: false,
         title_refresh_enabled: false,
+        title_refresh_turns: crate::session::helpers::session_summary::TITLE_REFRESH_TURNS.to_vec(),
+        title_prompt: None,
         session_turn_active: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         streaming_turn_capture: parking_lot::Mutex::new(StreamingTurnCapture::default()),
         stream_apply_span: parking_lot::Mutex::new(None),

@@ -453,8 +453,6 @@ pub(crate) async fn spawn_session_actor(
     history_scan_span.record("history_turns", initial_prompt_index as i64);
     let initial_conversation_len = conversation.len();
     let title_session_dir = crate::session::persistence::session_dir(&session_info);
-    let title_refresh_watermark =
-        crate::session::helpers::session_summary::load_title_refresh_watermark(&title_session_dir);
     let title_refresh_turns_at_spawn =
         crate::session::helpers::session_recap::main_turn_count(&conversation);
     let initial_last_recap_main_turn = crate::session::helpers::session_recap::load_recap_watermark(
@@ -1643,11 +1641,27 @@ pub(crate) async fn spawn_session_actor(
         arc_swap::ArcSwapOption<xai_grok_sampling_types::ToolOverrides>,
     > = std::sync::Arc::new(arc_swap::ArcSwapOption::empty());
     let title_refresh_enabled = effective_config.is_title_refresh_enabled();
+    let title_refresh_turns =
+        crate::session::helpers::session_summary::title_refresh_turns_from_session(
+            &effective_config.session,
+        );
+    let title_prompt = crate::session::helpers::session_summary::title_prompt_from_session(
+        &effective_config.session,
+    );
+    let title_refresh_watermark =
+        crate::session::helpers::session_summary::load_title_refresh_watermark(&title_session_dir)
+            .map(|idx| {
+                crate::session::helpers::session_summary::clamp_title_refresh_idx(
+                    idx,
+                    title_refresh_turns.len(),
+                )
+            });
     let initial_title_refresh_idx =
         crate::session::helpers::session_summary::initial_title_refresh_idx(
             title_refresh_watermark,
             title_refresh_enabled,
             title_refresh_turns_at_spawn,
+            title_refresh_turns.len(),
         );
     if title_refresh_watermark.is_none() && initial_title_refresh_idx == 0 {
         crate::session::helpers::session_summary::save_title_refresh_watermark(
@@ -1962,6 +1976,8 @@ pub(crate) async fn spawn_session_actor(
         turn_summary_generation: std::cell::Cell::new(0),
         turn_summary_enabled: effective_config.is_turn_summary_enabled(),
         title_refresh_enabled,
+        title_refresh_turns,
+        title_prompt,
         title_refresh_task: std::cell::RefCell::new(None),
         title_refresh_generation: std::cell::Cell::new(0),
         next_title_refresh_idx: std::cell::Cell::new(initial_title_refresh_idx),

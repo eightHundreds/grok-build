@@ -478,6 +478,8 @@ User-level configuration lives in `$GROK_HOME/config.toml` (default `~/.grok/con
 | --- | --- | --- | --- | --- |
 | `session.auto_compact_threshold_percent` | `integer` | `yes` | `user` | Auto-compact when context usage reaches this percent (0–100). |
 | `session.load_envrc` | `boolean` | `yes` | `user` | Inject `.envrc` variables into bash. |
+| `session.title_prompt` | `string` | `yes` | `user` | Prompt used when generating a session title. Unset uses the built-in title prompt. |
+| `session.title_refresh_turns` | `integer[]` | `yes` | `user` | Real-user turn counts that refresh the auto title, then freeze. Default `3`, `6`. |
 
 ### `shell_environment_policy`
 

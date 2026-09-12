@@ -171,7 +171,8 @@ async fn handle_session_rename(agent: &MvpAgent, args: &acp::ExtRequest) -> ExtR
         // Dormant session: no actor to freeze it, so persist the frozen watermark directly for the next resume
         crate::session::helpers::session_summary::save_title_refresh_watermark(
             &crate::session::persistence::session_dir(&info),
-            crate::session::helpers::session_summary::TITLE_REFRESH_TURNS.len(),
+            crate::session::helpers::session_summary::title_refresh_turns_from_effective_config()
+                .len(),
         );
     }
 

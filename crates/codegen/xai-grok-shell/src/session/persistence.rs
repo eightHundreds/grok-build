@@ -311,7 +311,7 @@ pub enum PersistenceMsg {
     /// Generated session title from background LLM task.
     /// Routed back through the persistence channel so the storage write stays sequential with other summary.json mutations.
     GeneratedTitle(String),
-    /// Early-session title refresh (turns 3 and 6): overwrite an existing auto title with one regenerated from the whole conversation.
+    /// Early-session title refresh (configured refresh turns, default 3 and 6): overwrite an existing auto title with one regenerated from the whole conversation.
     /// Never overwrites a manual `/rename` (enforced atomically under the summary lock).
     RegenerateTitle(String),
     /// Persist a bounded preview of the latest session recap so session listings can show it whenever available.

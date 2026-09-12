@@ -1837,6 +1837,54 @@ fn parses_auto_compact_threshold_percent() {
     assert_eq!(cfg.session.auto_compact_threshold_percent, Some(75));
 }
 #[test]
+fn session_title_generation_defaults_when_unset() {
+    let cfg = Config::default();
+    assert_eq!(cfg.session.title_refresh_turns, None);
+    assert_eq!(cfg.session.title_prompt, None);
+    let raw_config: toml::Value = toml::from_str(
+        r#"
+            [session]
+            load_envrc = true
+            "#,
+    )
+    .unwrap();
+    let cfg = Config::new_from_toml_cfg(&raw_config).expect("config should parse");
+    assert_eq!(cfg.session.title_refresh_turns, None);
+    assert_eq!(cfg.session.title_prompt, None);
+}
+#[test]
+fn parses_session_title_refresh_turns_and_prompt() {
+    let raw_config: toml::Value = toml::from_str(
+        r#"
+            [session]
+            title_refresh_turns = [1, 4, 8]
+            title_prompt = "Name this coding session."
+            "#,
+    )
+    .unwrap();
+    let cfg = Config::new_from_toml_cfg(&raw_config).expect("config should parse");
+    assert_eq!(
+        cfg.session.title_refresh_turns.as_deref(),
+        Some(&[1, 4, 8][..])
+    );
+    assert_eq!(
+        cfg.session.title_prompt.as_deref(),
+        Some("Name this coding session.")
+    );
+}
+#[test]
+fn parses_empty_session_title_refresh_turns() {
+    let raw_config: toml::Value = toml::from_str(
+        r#"
+            [session]
+            title_refresh_turns = []
+            "#,
+    )
+    .unwrap();
+    let cfg = Config::new_from_toml_cfg(&raw_config).expect("config should parse");
+    assert_eq!(cfg.session.title_refresh_turns.as_deref(), Some(&[][..]));
+}
+#[test]
 fn compaction_mode_precedence_env_over_config_over_remote_over_default() {
     use xai_chat_state::CompactionMode;
     assert_eq!(
