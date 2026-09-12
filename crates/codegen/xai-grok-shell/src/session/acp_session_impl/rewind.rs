@@ -449,6 +449,7 @@ impl SessionActor {
                 );
                 let idx = crate::session::helpers::session_summary::checkpoints_reached(
                     post_rewind_turns,
+                    &self.title_refresh_turns,
                 );
                 self.next_title_refresh_idx.set(idx);
                 crate::session::helpers::session_summary::save_title_refresh_watermark(

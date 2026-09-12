@@ -337,6 +337,9 @@ async fn persist_ack_waits_for_disk_flush_before_success() {
                 next_title_refresh_idx: std::cell::Cell::new(0),
                 turn_summary_enabled: false,
                 title_refresh_enabled: false,
+                title_refresh_turns: crate::session::helpers::session_summary::TITLE_REFRESH_TURNS
+                    .to_vec(),
+                title_prompt: None,
                 session_turn_active: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 streaming_turn_capture: parking_lot::Mutex::new(StreamingTurnCapture::default()),
                 stream_apply_span: parking_lot::Mutex::new(None),
@@ -953,6 +956,9 @@ async fn first_turn_memory_injection_disabled_does_not_persist_to_chat_history()
                 next_title_refresh_idx: std::cell::Cell::new(0),
                 turn_summary_enabled: false,
                 title_refresh_enabled: false,
+                title_refresh_turns: crate::session::helpers::session_summary::TITLE_REFRESH_TURNS
+                    .to_vec(),
+                title_prompt: None,
                 session_turn_active: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 streaming_turn_capture: parking_lot::Mutex::new(StreamingTurnCapture::default()),
                 stream_apply_span: parking_lot::Mutex::new(None),
@@ -1299,6 +1305,8 @@ async fn cancel_running_task_teardown_clears_running_and_pending_work() {
                 next_title_refresh_idx: std::cell::Cell::new(0),
                 turn_summary_enabled: false,
                 title_refresh_enabled: false,
+                title_refresh_turns: crate::session::helpers::session_summary::TITLE_REFRESH_TURNS.to_vec(),
+                title_prompt: None,
                 session_turn_active: std::sync::Arc::new(
                     std::sync::atomic::AtomicBool::new(false),
                 ),
@@ -2880,6 +2888,8 @@ async fn cancel_propagates_to_sampler_handle_so_no_further_emission() {
                 next_title_refresh_idx: std::cell::Cell::new(0),
                 turn_summary_enabled: false,
                 title_refresh_enabled: false,
+                title_refresh_turns: crate::session::helpers::session_summary::TITLE_REFRESH_TURNS.to_vec(),
+                title_prompt: None,
                 session_turn_active: std::sync::Arc::new(
                     std::sync::atomic::AtomicBool::new(false),
                 ),

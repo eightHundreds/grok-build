@@ -1174,7 +1174,7 @@ pub trait StorageAdapter: Send + Sync {
         session_title: String,
     ) -> io::Result<bool>;
 
-    /// Overwrite an existing auto title with a refreshed one (early-session title refresh at turns 3 and 6), but never a manual `/rename`.
+    /// Overwrite an existing auto title with a refreshed one (early-session title refresh at the configured turns, default 3 and 6), but never a manual `/rename`.
     /// The manual check and write are atomic under the summary lock, so a concurrent manual rename always wins.
     /// Returns `true` if the title was written, `false` if a manual pin was preserved.
     async fn regenerate_generated_title(

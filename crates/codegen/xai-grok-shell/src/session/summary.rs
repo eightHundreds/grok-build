@@ -63,8 +63,15 @@ impl SummaryGenerator {
 
                 // A background task runs the LLM call so the persistence actor keeps processing messages (updates, flushes)
                 tokio::spawn(async move {
-                    let mut title =
-                        generate_session_summary(content.clone(), sampling_client, &model).await;
+                    let title_prompt =
+                        crate::session::helpers::session_summary::title_prompt_from_effective_config();
+                    let mut title = generate_session_summary(
+                        content.clone(),
+                        sampling_client,
+                        &model,
+                        title_prompt.as_deref(),
+                    )
+                    .await;
                     if title.trim().is_empty() {
                         title =
                             crate::session::helpers::session_summary::title_fallback_from_user_text(

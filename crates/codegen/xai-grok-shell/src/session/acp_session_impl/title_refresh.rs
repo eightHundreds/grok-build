@@ -1,7 +1,7 @@
 //! Early-session auto-title refresh on `SessionActor`.
 //!
 //! The first title comes from the fast first-prompt path ([`crate::session::summary::SummaryGenerator`]).
-//! This side-call refreshes it from the whole conversation at [`crate::session::helpers::session_summary::TITLE_REFRESH_TURNS`] and then freezes.
+//! This side-call refreshes it from the whole conversation at the configured refresh turns (default [`crate::session::helpers::session_summary::TITLE_REFRESH_TURNS`]) and then freezes.
 //! A weak first prompt therefore doesn't leave the session mistitled.
 //! The refresh is best-effort and generation-guarded; a manual `/rename` always wins (enforced by the `RegenerateTitle` persistence path).
 
@@ -21,7 +21,7 @@ impl SessionActor {
         if !self.title_refresh_enabled || self.startup_hints.is_subagent {
             return;
         }
-        if self.next_title_refresh_idx.get() >= session_summary::TITLE_REFRESH_TURNS.len() {
+        if self.next_title_refresh_idx.get() >= self.title_refresh_turns.len() {
             return;
         }
         // One refresh at a time: a whole-conversation title doesn't need the very latest turn.
@@ -52,7 +52,7 @@ impl SessionActor {
     pub(crate) fn on_title_renamed(&self, manual: bool) {
         self.abort_title_refresh();
         let idx = if manual {
-            session_summary::TITLE_REFRESH_TURNS.len()
+            self.title_refresh_turns.len()
         } else {
             0
         };
@@ -81,7 +81,7 @@ impl SessionActor {
         let turns = session_recap::main_turn_count(&conversation);
 
         let idx = self.next_title_refresh_idx.get();
-        let target_idx = session_summary::checkpoints_reached(turns);
+        let target_idx = session_summary::checkpoints_reached(turns, &self.title_refresh_turns);
         if target_idx <= idx {
             return;
         }
@@ -121,7 +121,10 @@ impl SessionActor {
                 return None;
             }
         };
-        let instruction = session_summary::title_refresh_instruction(self.reminder_wrapper_tag());
+        let instruction = session_summary::title_refresh_instruction(
+            self.reminder_wrapper_tag(),
+            self.title_prompt.as_deref(),
+        );
         let items = session_recap::budget_instruction_items(
             conversation,
             instruction,

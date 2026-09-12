@@ -1563,6 +1563,14 @@ pub struct SessionConfig {
     /// `Option<bool>` so `None` round-trips as absent on disk (managed config wins over default).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub load_envrc: Option<bool>,
+    /// Real-user turn counts that refresh the auto-generated session title, then freeze.
+    /// `None` uses the built-in two-stage default (`3`, `6`). An explicit empty list disables refresh after the first title.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title_refresh_turns: Option<Vec<u32>>,
+    /// Prompt used when generating a session title (first-prompt generation and whole-conversation refresh).
+    /// `None` / blank uses the built-in title prompt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title_prompt: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
