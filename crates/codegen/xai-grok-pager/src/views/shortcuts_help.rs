@@ -399,8 +399,10 @@ pub fn filter_entries(
                 let key_text = hint_key_display(h);
                 let key_pretty = hint_key_pretty(h);
                 let desc = hint_description(h);
+                let label_zh = xai_grok_i18n::t(h.label.as_ref());
                 let q_matches = q.is_empty()
                     || h.label.to_lowercase().contains(&q)
+                    || label_zh.to_lowercase().contains(&q)
                     || key_text.to_lowercase().contains(&q)
                     || key_pretty.to_lowercase().contains(&q)
                     || desc.to_lowercase().contains(&q);
@@ -460,7 +462,8 @@ pub fn entry_display(entries: &[ShortcutsHelpEntry], idx: usize) -> (String, Str
 }
 
 fn hint_description(h: &HintItem) -> String {
-    h.description
+    let raw = h
+        .description
         .as_ref()
         .map(|d| d.to_string())
         .unwrap_or_else(|| {
@@ -471,7 +474,8 @@ fn hint_description(h: &HintItem) -> String {
                 None => String::new(),
                 Some(c) => c.to_uppercase().to_string() + chars.as_str(),
             }
-        })
+        });
+    xai_grok_i18n::t(&raw).into_owned()
 }
 
 // ---------------------------------------------------------------------------
@@ -578,11 +582,8 @@ pub fn detail_from_entry(entry: &ShortcutsHelpEntry) -> Option<ShortcutsHelpMode
     if action_id.is_none() && long_help.is_none() {
         return None;
     }
-    let title = item
-        .description
-        .as_deref()
-        .unwrap_or(item.label.as_ref())
-        .to_string();
+    let title = xai_grok_i18n::t(item.description.as_deref().unwrap_or(item.label.as_ref()))
+        .into_owned();
     let keys_line = item
         .custom_display
         .map(|s| s.to_string())
@@ -594,11 +595,13 @@ pub fn detail_from_entry(entry: &ShortcutsHelpEntry) -> Option<ShortcutsHelpMode
                 .join(" / ")
         });
     // Body prefers long_help; falls back to the one-line description.
-    let body = long_help
-        .as_deref()
-        .or(item.description.as_deref())
-        .unwrap_or(item.label.as_ref())
-        .to_string();
+    let body = xai_grok_i18n::t(
+        long_help
+            .as_deref()
+            .or(item.description.as_deref())
+            .unwrap_or(item.label.as_ref()),
+    )
+    .into_owned();
     Some(ShortcutsHelpMode::Detail {
         title,
         keys_line,
@@ -1139,10 +1142,11 @@ impl CheatsheetRows {
                     category_idx,
                 }) => {
                     let is_collapsed = collapsed_sections.contains(category_idx);
+                    let label = xai_grok_i18n::t(label);
                     let display = if is_collapsed {
                         format!("{label} ({entry_count})")
                     } else {
-                        (*label).to_string()
+                        label.into_owned()
                     };
                     row_strs.push((display, String::new()));
                     help_text.push(String::new());
@@ -1152,7 +1156,7 @@ impl CheatsheetRows {
                     row_strs.push(entry_display(entries, i));
                     // Collapse newlines to spaces so the collapsible view shows one wrap-flowed block (no hard breaks).
                     let help = hint_inline_help(entry)
-                        .map(|s| s.replace('\n', " "))
+                        .map(|s| xai_grok_i18n::t(&s.replace('\n', " ")).into_owned())
                         .unwrap_or_default();
                     help_text.push(help);
                     kinds.push(CheatsheetRowKind::Hint {

@@ -116,6 +116,8 @@ jobs:
         env:
           GROK_VERSION: ${{ needs.version.outputs.version }}
           CARGO_INCREMENTAL: "0"
+          # Compile-time default UI locale (runtime GROK_LANG still overrides).
+          GROK_UI_LANG: zh
         run: cargo build --profile release-dist -p xai-grok-pager-bin
 
       - name: Package versioned artifact

@@ -16,6 +16,8 @@ xai-prompt-queue = { workspace = true }
 
 # Presentation-primitives layer (extracted)
 xai-grok-pager-render = { path = "../xai-grok-pager-render" }
+# Fork-only UI dictionary (paint-time lookup; English msgids stay in this crate).
+xai-grok-i18n = { workspace = true }
 
 # The /gboom easter-egg game (extracted)
 xai-grok-gboom = { path = "../xai-grok-gboom" }

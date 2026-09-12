@@ -228,7 +228,8 @@ impl Widget for ShortcutsBar<'_> {
         // If pending confirmation, show only "press again to {label}"
         if let Some(pending) = &self.pending_confirmation {
             let key_text = pending.shortcut.display();
-            let label = format!("press again to {}", pending.label);
+            let action = xai_grok_i18n::t(pending.label);
+            let label = xai_grok_i18n::t_fmt("press again to {label}", &[("label", action.as_ref())]);
 
             let mut x = area.x;
 
@@ -282,8 +283,9 @@ impl Widget for ShortcutsBar<'_> {
             buf.set_span(x, area.y, &colon, 1);
             x += 1;
 
-            let action_span = Span::styled(hint.label.as_ref(), action_style);
-            let action_width = hint.label.width() as u16;
+            let action = xai_grok_i18n::t(hint.label.as_ref());
+            let action_span = Span::styled(action.as_ref(), action_style);
+            let action_width = action.width() as u16;
             if x + action_width > area.x + area.width {
                 break;
             }
@@ -539,6 +541,25 @@ mod tests {
         let label = buf.cell((label_x, 0)).unwrap().style();
         assert_eq!(label.fg, Some(Theme::current().gray), "RGB keeps gray");
         assert!(!label.add_modifier.contains(Modifier::DIM));
+    }
+
+    #[test]
+    fn paint_looks_up_zh_label() {
+        let _locale = xai_grok_i18n::pin_locale("zh");
+        let _guard = crate::theme::cache::pin_theme();
+        crate::theme::cache::set(crate::theme::ThemeKind::GrokNight);
+        let buf = render_hints(&[h("send", key!('x', CONTROL))]);
+        // Wide CJK glyphs occupy two terminal cells; Buffer::symbol on the
+        // trailing cell is a space, so join and strip before asserting.
+        let text: String = leading_text(&buf, 16).chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(
+            text.contains("发送"),
+            "zh paint should replace send: {text:?}"
+        );
+        assert!(
+            !text.contains("send"),
+            "english msgid should not remain on the bar: {text:?}"
+        );
     }
 
     #[test]

@@ -40,6 +40,19 @@ title_refresh_turns = []
 Details: [config reference](crates/codegen/xai-grok-pager/docs/user-guide/26-config-reference.md), [sessions](crates/codegen/xai-grok-pager/docs/user-guide/17-sessions.md).  
 Landed in [#1](https://github.com/eightHundreds/grok-build/pull/1).
 
+### TUI dictionary (zh-CN)
+
+User-visible shortcut-bar labels, cheatsheet section headers, and action descriptions are looked up from a compiled-in dictionary at **paint time**. Upstream English msgids stay in source.
+
+| Switch | When | Effect |
+| --- | --- | --- |
+| `GROK_UI_LANG` | compile (`release.yml` sets `zh`) | Default locale baked into the binary |
+| `GROK_LANG` | runtime | Overrides the compile-time default (`en`, `zh`, `zh-CN`) |
+
+Unset / `en` keeps English (tests stay stable). Missing keys fall back to English. Model prompts and tool protocol strings are **not** in the catalog.
+
+Files: `crates/codegen/xai-grok-i18n/`, `locales/zh-CN.toml`. Call sites: shortcuts bar paint + shortcuts cheatsheet display/search.
+
 ## Distribution (not product behavior)
 
 These do not change the TUI/agent loop. They keep this fork off the official `x.ai/cli` / GCS channel.

@@ -13861,6 +13861,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "xai-grok-i18n"
+version = "0.1.0"
+dependencies = [
+ "toml",
+]
+
+[[package]]
 name = "xai-grok-image"
 version = "0.1.0"
 dependencies = [
@@ -14168,6 +14175,7 @@ dependencies = [
  "xai-grok-foreign-sessions",
  "xai-grok-gboom",
  "xai-grok-hooks",
+ "xai-grok-i18n",
  "xai-grok-login",
  "xai-grok-markdown",
  "xai-grok-mermaid",
@@ -14218,6 +14226,7 @@ dependencies = [
  "xai-grok-active-sessions",
  "xai-grok-config",
  "xai-grok-extra-ca",
+ "xai-grok-i18n",
  "xai-grok-login",
  "xai-grok-pager",
  "xai-grok-pager-minimal",
