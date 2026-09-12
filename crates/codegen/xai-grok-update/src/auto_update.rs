@@ -515,6 +515,13 @@ fn is_under_node_modules(exe: &std::path::Path) -> bool {
     exe.components().any(|c| c.as_os_str() == "node_modules")
 }
 
+/// This fork versions as `<upstream>-fork.N` so X.Y.Z never drifts from upstream.
+/// Treat those identifiers as first-class stable cuts, not official alphas.
+fn is_fork_prerelease(v: &semver::Version) -> bool {
+    let pre = v.pre.as_str();
+    pre == "fork" || pre.starts_with("fork.")
+}
+
 fn needs_update(current: &str, target: &str, channel: &str, allow_downgrade: bool) -> Option<bool> {
     let current = semver::Version::parse(current).ok()?;
     let target = semver::Version::parse(target).ok()?;
@@ -522,7 +529,7 @@ fn needs_update(current: &str, target: &str, channel: &str, allow_downgrade: boo
         // NOTE: With the 0.2.X versioning scheme, all versions are plain semver (no pre-release suffix)
         // The pre-release checks in this match are dead code but kept as a safety net
         "stable" | "enterprise" => {
-            if !target.pre.is_empty() {
+            if !target.pre.is_empty() && !is_fork_prerelease(&target) {
                 tracing::warn!(
                     %current, %target,
                     channel = %channel,
@@ -530,7 +537,7 @@ fn needs_update(current: &str, target: &str, channel: &str, allow_downgrade: boo
                 );
                 return Some(false);
             }
-            if !current.pre.is_empty() {
+            if !current.pre.is_empty() && !is_fork_prerelease(&current) {
                 return Some(true);
             }
         }

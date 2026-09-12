@@ -51,7 +51,21 @@ User-visible shortcut-bar labels, cheatsheet section headers, and action descrip
 
 Unset / `en` keeps English (tests stay stable). Missing keys fall back to English. Model prompts and tool protocol strings are **not** in the catalog.
 
-Files: `crates/codegen/xai-grok-i18n/`, `locales/zh-CN.toml`. Call sites: shortcuts bar paint + shortcuts cheatsheet display/search.
+Files: `crates/codegen/xai-grok-i18n/`, `locales/zh-CN.toml`. Call sites: shortcuts bar paint, shortcuts cheatsheet display/search, command-palette title/rows/footer (English labels stay in `default_palette_entries()`).
+
+## Versioning
+
+Do **not** bump the three-digit crate semver ahead of, or independently from, upstream. `crates/codegen/xai-grok-version/Cargo.toml` stays whatever the last `Synced from monorepo` snapshot shipped (currently `1.0.24`).
+
+Each published cut is that same X.Y.Z plus a fork suffix:
+
+| Published | Meaning |
+| --- | --- |
+| `1.0.24-fork.1` | first fork cut of upstream 1.0.24（Fork 一） |
+| `1.0.24-fork.2` | second cut of the same upstream（Fork 二） |
+| `1.0.25-fork.1` | first cut after syncing upstream 1.0.25（计数重置） |
+
+`GITHUB_RUN_NUMBER` is **not** used as the patch number (that produced `1.0.3` / `1.0.5` and would eventually pass upstream). Resolver: `.github/scripts/resolve-fork-version.sh`.
 
 ## Distribution (not product behavior)
 

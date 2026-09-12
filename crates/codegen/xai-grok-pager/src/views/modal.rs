@@ -638,8 +638,10 @@ pub(crate) fn filter_palette_entries(
             pending_header = Some(entry);
             section_has_match = false;
         } else {
+            let translated = xai_grok_i18n::t(&entry.label);
             let matches = entry.label.to_lowercase().contains(&query_lower)
-                || entry.shortcut.to_lowercase().contains(&query_lower);
+                || entry.shortcut.to_lowercase().contains(&query_lower)
+                || translated.to_lowercase().contains(&query_lower);
             if matches {
                 if let Some(h) = pending_header.take() {
                     result.push(h);
@@ -1528,6 +1530,19 @@ mod palette_sharing_tests {
         assert_eq!(
             entries.first().map(|e| e.title.as_str()),
             Some("Getting Started")
+        );
+    }
+    #[test]
+    fn filter_palette_matches_translated_label() {
+        let _g = xai_grok_i18n::pin_locale("zh");
+        let entries = filter_palette_entries(
+            "返回主页",
+            true,
+            &slash(crate::app::ScreenMode::Fullscreen),
+        );
+        assert!(
+            entries.iter().any(|e| e.label == "Back to Home"),
+            "Chinese query should match the English-stored palette label"
         );
     }
 }

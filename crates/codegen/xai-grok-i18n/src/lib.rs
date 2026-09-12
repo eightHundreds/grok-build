@@ -154,6 +154,9 @@ mod tests {
             "再按一次以退出"
         );
         assert_eq!(t("no-such-msgid").as_ref(), "no-such-msgid");
+        assert_eq!(t("Back to Home").as_ref(), "返回主页");
+        assert_eq!(t("Commands").as_ref(), "命令");
+        assert_eq!(t("↑/↓ nav").as_ref(), "↑/↓ 导航");
     }
 
     #[test]

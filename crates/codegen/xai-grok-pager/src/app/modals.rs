@@ -1693,19 +1693,22 @@ impl AgentView {
             use crate::views::picker::{self, PickerEntry, PickerRow};
 
             // Standard footer shortcuts for picker-style modals.
+            let shortcut_nav = xai_grok_i18n::t("\u{2191}/\u{2193} nav");
+            let shortcut_enter = xai_grok_i18n::t("Enter select");
+            let shortcut_esc = xai_grok_i18n::t("Esc close");
             let mut picker_shortcuts: Vec<Shortcut> = vec![
                 Shortcut {
-                    label: "\u{2191}/\u{2193} nav",
+                    label: shortcut_nav.as_ref(),
                     clickable: false,
                     id: 0,
                 },
                 Shortcut {
-                    label: "Enter select",
+                    label: shortcut_enter.as_ref(),
                     clickable: false,
                     id: 0,
                 },
                 Shortcut {
-                    label: "Esc close",
+                    label: shortcut_esc.as_ref(),
                     clickable: false,
                     id: 0,
                 },
@@ -1729,15 +1732,19 @@ impl AgentView {
                     .iter()
                     .map(|e| matches!(e.command, modal::PaletteCommand::SectionHeader(_)))
                     .collect();
+                let palette_labels: Vec<_> =
+                    filtered.iter().map(|e| xai_grok_i18n::t(&e.label)).collect();
                 let picker_entries: Vec<PickerEntry> = filtered
                     .iter()
                     .enumerate()
                     .map(|(i, e)| {
                         if matches!(e.command, modal::PaletteCommand::SectionHeader(_)) {
-                            PickerEntry::Header { label: &e.label }
+                            PickerEntry::Header {
+                                label: palette_labels[i].as_ref(),
+                            }
                         } else {
                             PickerEntry::Row(PickerRow {
-                                label: &e.label,
+                                label: palette_labels[i].as_ref(),
                                 right_label: &e.shortcut,
                                 selected: state.hovered == Some(i)
                                     || (state.hovered.is_none() && i == state.selected),
@@ -1758,8 +1765,9 @@ impl AgentView {
                 let compact = self.scrollback.appearance().prompt.compact;
                 // Surface `i search` in the footer when vim nav mode is active.
                 mw::push_vim_nav_search_hint(&mut picker_shortcuts, state.search_active);
+                let palette_title = xai_grok_i18n::t("Commands");
                 let modal_config = ModalWindowConfig {
-                    title: "Commands",
+                    title: palette_title.as_ref(),
                     tabs: None,
                     shortcuts: &picker_shortcuts,
                     sizing: ModalSizing {

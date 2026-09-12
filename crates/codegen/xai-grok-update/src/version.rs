@@ -589,6 +589,10 @@ mod tests {
             "https://github.com/eightHundreds/grok-build/releases/download/v1.0.24/grok-1.0.24-linux-x86_64"
         );
         assert_eq!(
+            cli_artifact_url(latest, "grok-1.0.24-fork.1-linux-x86_64"),
+            "https://github.com/eightHundreds/grok-build/releases/download/v1.0.24-fork.1/grok-1.0.24-fork.1-linux-x86_64"
+        );
+        assert_eq!(
             cli_artifact_url(latest, "grok-1.0.24-linux-x86_64.zst"),
             "https://github.com/eightHundreds/grok-build/releases/download/v1.0.24/grok-1.0.24-linux-x86_64.zst"
         );
@@ -642,6 +646,8 @@ mod tests {
             // Truncating to "0.1.220" would make an alpha install masquerade as the release and mask updates from alpha to stable
             ("grok-0.1.220-alpha.4-linux-x86_64", Some("0.1.220-alpha.4")),
             ("grok-0.1.220-alpha.4", Some("0.1.220-alpha.4")), // npm layout
+            ("grok-1.0.24-fork.1-linux-x86_64", Some("1.0.24-fork.1")),
+            ("grok-1.0.24-fork.12-macos-aarch64", Some("1.0.24-fork.12")),
             ("grok-pager-0.1.5-darwin-arm64", None),           // "pager" is not a version
             ("grok-garbage-darwin-arm64", None),               // unparseable version
             ("grok-0.2.46", Some("0.2.46")),                   // no platform suffix

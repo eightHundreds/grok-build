@@ -58,7 +58,7 @@ irm https://github.com/eightHundreds/grok-build/releases/latest/download/install
 grok --version
 ```
 
-Pin a version with `bash -s X.Y.Z` (Unix) or `$env:GROK_VERSION="X.Y.Z"` (PowerShell).
+Pin a version with `bash -s 1.0.24-fork.1` (Unix) or `$env:GROK_VERSION="1.0.24-fork.1"` (PowerShell). The three-digit semver matches upstream; only the `fork.N` suffix is this repo’s cut.
 
 See the [changelog](https://x.ai/build/changelog) for upstream release notes.
 

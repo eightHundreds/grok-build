@@ -546,6 +546,40 @@ fn test_needs_update_stable_channel_never_gets_prerelease() {
 }
 
 #[test]
+fn test_needs_update_stable_accepts_fork_suffix() {
+    // Fork cuts keep upstream X.Y.Z and only increment -fork.N.
+    assert_eq!(
+        needs_update("1.0.24-fork.1", "1.0.24-fork.2", "stable", false),
+        Some(true)
+    );
+    assert_eq!(
+        needs_update("1.0.24-fork.2", "1.0.24-fork.1", "stable", false),
+        Some(false)
+    );
+    assert_eq!(
+        needs_update("1.0.5", "1.0.24-fork.1", "stable", false),
+        Some(true)
+    );
+    assert_eq!(
+        needs_update("1.0.24-fork.2", "1.0.25-fork.1", "stable", false),
+        Some(true)
+    );
+    assert_eq!(
+        needs_update("1.0.24-fork.1", "1.0.24-fork.1", "stable", false),
+        Some(false)
+    );
+    // Official alphas are still rejected; a fork current is not forced off-channel.
+    assert_eq!(
+        needs_update("1.0.24-fork.1", "1.0.24-alpha.1", "stable", false),
+        Some(false)
+    );
+    assert_eq!(
+        needs_update("1.0.24-fork.1", "1.0.24-fork.1", "enterprise", false),
+        Some(false)
+    );
+}
+
+#[test]
 fn test_needs_update_valid_current_only_upgrades() {
     // An admissible current version on the target channel gets a pure semver comparison (allow_downgrade=false)
     assert_eq!(

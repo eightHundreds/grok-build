@@ -18,7 +18,7 @@ curl -fsSL https://github.com/eightHundreds/grok-build/releases/latest/download/
 Install a specific version:
 
 ```bash
-curl -fsSL https://github.com/eightHundreds/grok-build/releases/latest/download/install.sh | bash -s 0.1.42
+curl -fsSL https://github.com/eightHundreds/grok-build/releases/latest/download/install.sh | bash -s 1.0.24-fork.1
 ```
 
 On **Windows (PowerShell)**, use the native PowerShell installer:
@@ -30,7 +30,7 @@ irm https://github.com/eightHundreds/grok-build/releases/latest/download/install
 Install a specific version:
 
 ```powershell
-$env:GROK_VERSION="0.1.42"; irm https://github.com/eightHundreds/grok-build/releases/latest/download/install.ps1 | iex
+$env:GROK_VERSION="1.0.24-fork.1"; irm https://github.com/eightHundreds/grok-build/releases/latest/download/install.ps1 | iex
 ```
 
 The PowerShell installer automatically adds `%USERPROFILE%\.grok\bin` to your User PATH. Alternatively, install via [Git for Windows](https://gitforwindows.org/) (Git Bash) or MSYS2 using the bash script above. WSL users get the Linux binary automatically.
