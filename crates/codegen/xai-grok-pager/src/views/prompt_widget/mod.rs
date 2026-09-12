@@ -3266,10 +3266,11 @@ impl PromptWidget {
             && (!style.focused || style.placeholder_when_focused)
             && !voice_interim_shown
         {
-            let placeholder = style.placeholder_override.unwrap_or("Build anything");
+            let placeholder =
+                xai_grok_i18n::t(style.placeholder_override.unwrap_or("Build anything"));
             // `set_string` clips at the buffer edge, not at the textarea, so a placeholder longer than the box would paint over its border.
             let truncated =
-                crate::render::line_utils::truncate_str(placeholder, ta_area.width as usize);
+                crate::render::line_utils::truncate_str(placeholder.as_ref(), ta_area.width as usize);
             buf.set_string(ta_area.x, ta_area.y, &truncated, theme.muted().bg(bg));
         }
 

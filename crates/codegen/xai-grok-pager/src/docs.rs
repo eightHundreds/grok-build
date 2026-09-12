@@ -229,12 +229,34 @@ pub fn list_howto_titles() -> Vec<String> {
     all_titles().map(String::from).collect()
 }
 
+/// TUI-only localized body. Disk extract / model lookup stay on the English tables.
+fn localized_howto_content(d: &Doc) -> &'static str {
+    if xai_grok_i18n::locale() == xai_grok_i18n::Locale::ZhCn {
+        crate::docs_zh::content_for(d.filename).unwrap_or(d.content)
+    } else {
+        d.content
+    }
+}
+
+/// Title + body for TUI viewers that already resolved a doc via the English title.
+pub fn localized_howto_view(title: &str) -> Option<(String, &'static str)> {
+    let d = find_doc(title)?;
+    Some((
+        xai_grok_i18n::t(d.title).into_owned(),
+        localized_howto_content(d),
+    ))
+}
+
 /// Returns all docs as owned `DocEntry` values for the TUI doc picker.
 pub fn default_howto_entries() -> Vec<DocEntry> {
     USER_GUIDE
         .iter()
         .chain(REFERENCE_DOCS.iter())
-        .map(DocEntry::from)
+        .map(|d| DocEntry {
+            title: xai_grok_i18n::t(d.title).into_owned(),
+            description: xai_grok_i18n::t(d.description).into_owned(),
+            content: localized_howto_content(d),
+        })
         .collect()
 }
 

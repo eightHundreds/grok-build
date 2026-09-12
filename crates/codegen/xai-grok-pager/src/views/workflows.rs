@@ -539,9 +539,10 @@ pub fn render_workflows(
     let has_run_list = runs.len() > 1;
     let selected_run = detail_run.or_else(|| runs.get(state.selected_run).copied());
     let (shortcuts, sizing) = modal_config(in_detail, has_run_list, selected_run);
+    let workflow_title = xai_grok_i18n::t("Workflow Runs");
     let config = ModalWindowConfig {
         // "Workflow Runs", not "Workflows": that name belongs to the extensions-modal catalog tab
-        title: "Workflow Runs",
+        title: workflow_title.as_ref(),
         tabs: None,
         shortcuts: &shortcuts,
         sizing,

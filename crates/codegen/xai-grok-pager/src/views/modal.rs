@@ -1119,8 +1119,9 @@ pub fn render_doc_picker_overlay(
         footer_lines: footer_lines_with_tip_gap(area, &base_sizing, &picker_shortcuts),
         ..base_sizing
     };
+    let howto_title = xai_grok_i18n::t("How-to Guides");
     let modal_config = ModalWindowConfig {
-        title: "How-to Guides",
+        title: howto_title.as_ref(),
         tabs: None,
         shortcuts: &picker_shortcuts,
         sizing,

@@ -783,7 +783,10 @@ impl FeedbackModalState {
             self.metadata_focus = Some(last);
             return FeedbackModalOutcome::Changed;
         }
-        let config = Self::window_config(&[], false, false);
+        let title = xai_grok_i18n::t("Feedback");
+        let tabs_owned: Vec<_> = FEEDBACK_TABS.iter().map(|t| xai_grok_i18n::t(*t)).collect();
+        let tabs: Vec<&str> = tabs_owned.iter().map(|s| s.as_ref()).collect();
+        let config = Self::window_config(&[], false, false, title.as_ref(), Some(&tabs));
         match modal_window::handle_modal_key(&mut self.window, key, &config) {
             ModalWindowOutcome::CloseRequested => return FeedbackModalOutcome::Cancel,
             ModalWindowOutcome::Unhandled => {}

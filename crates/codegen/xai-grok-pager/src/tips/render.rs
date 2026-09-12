@@ -29,14 +29,17 @@ pub fn tip_height(width: u16, tip: &str) -> u16 {
     }
 }
 
-fn tip_line(tip: &str) -> Line<'_> {
+fn tip_line(tip: &str) -> Line<'static> {
     let theme = Theme::current();
     Line::from(vec![
         Span::styled(
-            "Tip: ",
+            xai_grok_i18n::t("Tip: ").into_owned(),
             Style::default().fg(theme.gray).add_modifier(Modifier::BOLD),
         ),
-        Span::styled(tip, Style::default().fg(theme.gray)),
+        Span::styled(
+            xai_grok_i18n::t(tip).into_owned(),
+            Style::default().fg(theme.gray),
+        ),
     ])
 }
 

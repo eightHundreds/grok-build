@@ -65,7 +65,10 @@ fn quit_hint_spans(theme: &Theme) -> Vec<Span<'static>> {
                 .fg(theme.accent_user)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled("  quit", Style::default().fg(theme.gray)),
+        Span::styled(
+            format!("  {}", xai_grok_i18n::t("quit")),
+            Style::default().fg(theme.gray),
+        ),
     ]
 }
 
@@ -1013,7 +1016,7 @@ fn render_welcome_trust(
     let menu_items = [("y", "Yes, proceed"), ("n", "No, quit")];
     let lines = vec![
         Line::from(Span::styled(
-            "Do you trust the contents of this directory?",
+            xai_grok_i18n::t("Do you trust the contents of this directory?").into_owned(),
             Style::default().fg(theme.gray_bright),
         ))
         .alignment(Alignment::Center),
@@ -1025,12 +1028,13 @@ fn render_welcome_trust(
         Line::default(),
         // Two lines so the warning never clips at narrow / compact widths (a single ~78-char line would truncate "...posing security risks")
         Line::from(Span::styled(
-            "Grok Build may run or modify contents in this directory,",
+            xai_grok_i18n::t("Grok Build may run or modify contents in this directory,")
+                .into_owned(),
             Style::default().fg(theme.gray),
         ))
         .alignment(Alignment::Center),
         Line::from(Span::styled(
-            "posing security risks.",
+            xai_grok_i18n::t("posing security risks.").into_owned(),
             Style::default().fg(theme.gray),
         ))
         .alignment(Alignment::Center),
@@ -1101,28 +1105,37 @@ const AUTH_COPY_SUFFIX: &str = " to copy.";
 /// Build the "click here to copy" line with "here" underlined in accent color.
 fn auth_copy_line(theme: &Theme) -> Line<'static> {
     Line::from(vec![
-        Span::styled(AUTH_COPY_PREFIX, Style::default().fg(theme.gray_bright)),
         Span::styled(
-            AUTH_COPY_HERE,
+            xai_grok_i18n::t(AUTH_COPY_PREFIX).into_owned(),
+            Style::default().fg(theme.gray_bright),
+        ),
+        Span::styled(
+            xai_grok_i18n::t(AUTH_COPY_HERE).into_owned(),
             Style::default()
                 .fg(theme.accent_user)
                 .add_modifier(Modifier::UNDERLINED),
         ),
-        Span::styled(AUTH_COPY_SUFFIX, Style::default().fg(theme.gray_bright)),
+        Span::styled(
+            xai_grok_i18n::t(AUTH_COPY_SUFFIX).into_owned(),
+            Style::default().fg(theme.gray_bright),
+        ),
     ])
     .alignment(Alignment::Center)
 }
 
 /// Number of physical rows the header and the blank row occupy before the copy line.
 fn auth_copy_preceding_rows(header: &str, inner_width: u16) -> u16 {
-    let header_rows = (header.len() as u16).div_ceil(inner_width);
+    let shown = xai_grok_i18n::t(header);
+    let header_rows = (shown.width() as u16).div_ceil(inner_width.max(1));
     header_rows + 1 // header + blank
 }
 
 /// Number of physical rows the copy line occupies when wrapped.
 fn auth_copy_line_rows(inner_width: u16) -> u16 {
-    let copy_len = AUTH_COPY_PREFIX.len() + AUTH_COPY_HERE.len() + AUTH_COPY_SUFFIX.len();
-    (copy_len as u16).div_ceil(inner_width)
+    let copy_w = xai_grok_i18n::t(AUTH_COPY_PREFIX).width()
+        + xai_grok_i18n::t(AUTH_COPY_HERE).width()
+        + xai_grok_i18n::t(AUTH_COPY_SUFFIX).width();
+    (copy_w as u16).div_ceil(inner_width.max(1))
 }
 
 const AUTH_FALLBACK_TEXT: &str = "Copying not working? Click here to show full URL.";
@@ -1130,7 +1143,7 @@ const AUTH_FALLBACK_TEXT: &str = "Copying not working? Click here to show full U
 /// Build the fallback "show full URL" link line.
 fn auth_fallback_line(theme: &Theme) -> Line<'static> {
     Line::from(Span::styled(
-        AUTH_FALLBACK_TEXT,
+        xai_grok_i18n::t(AUTH_FALLBACK_TEXT).into_owned(),
         Style::default()
             .fg(theme.gray)
             .add_modifier(Modifier::UNDERLINED),
@@ -1149,17 +1162,23 @@ fn push_auth_copy_block(
     lines.push(Line::default());
     lines.push(match clipboard_delivery {
         Some(crate::clipboard::ClipboardDelivery::Confirmed) => {
-            Line::from(Span::styled("copied!", Style::default().fg(theme.gray)))
-                .alignment(Alignment::Center)
+            Line::from(Span::styled(
+                xai_grok_i18n::t("copied!").into_owned(),
+                Style::default().fg(theme.gray),
+            ))
+            .alignment(Alignment::Center)
         }
         Some(crate::clipboard::ClipboardDelivery::Unverified) => Line::from(Span::styled(
-            "copy sent: verify paste",
+            xai_grok_i18n::t("copy sent: verify paste").into_owned(),
             Style::default().fg(theme.gray),
         ))
         .alignment(Alignment::Center),
         Some(crate::clipboard::ClipboardDelivery::Failed) => {
-            Line::from(Span::styled("copy failed", Style::default().fg(theme.gray)))
-                .alignment(Alignment::Center)
+            Line::from(Span::styled(
+                xai_grok_i18n::t("copy failed").into_owned(),
+                Style::default().fg(theme.gray),
+            ))
+            .alignment(Alignment::Center)
         }
         None => Line::default(),
     });
@@ -1326,9 +1345,10 @@ fn render_browser_status_arm(
         ),
     };
 
-    let header_rows = (header.len() as u16).div_ceil(inner_width);
+    let header_rows = (xai_grok_i18n::t(header).width() as u16).div_ceil(inner_width.max(1));
     let code_extra = if user_code.is_some() {
-        let caption_rows = (DEVICE_CODE_CAPTION.len() as u16).div_ceil(inner_width);
+        let caption_rows =
+            (xai_grok_i18n::t(DEVICE_CODE_CAPTION).width() as u16).div_ceil(inner_width.max(1));
         1 + 1 + 1 + caption_rows // blank + code + blank + caption
     } else {
         0
@@ -1354,8 +1374,11 @@ fn render_browser_status_arm(
     render_logo(logo_area, buf, theme, content_area.height);
 
     let mut lines: Vec<Line> = vec![
-        Line::from(Span::styled(header, Style::default().fg(theme.gray_bright)))
-            .alignment(Alignment::Center),
+        Line::from(Span::styled(
+            xai_grok_i18n::t(header).into_owned(),
+            Style::default().fg(theme.gray_bright),
+        ))
+        .alignment(Alignment::Center),
     ];
     if let Some(code) = user_code {
         lines.push(Line::default());
@@ -1371,7 +1394,7 @@ fn render_browser_status_arm(
         lines.push(Line::default());
         lines.push(
             Line::from(Span::styled(
-                DEVICE_CODE_CAPTION,
+                xai_grok_i18n::t(DEVICE_CODE_CAPTION).into_owned(),
                 Style::default().fg(theme.gray),
             ))
             .alignment(Alignment::Center),
@@ -1382,8 +1405,11 @@ fn render_browser_status_arm(
     }
     lines.push(Line::default());
     lines.push(
-        Line::from(Span::styled(waiting_text, Style::default().fg(theme.gray)))
-            .alignment(Alignment::Center),
+        Line::from(Span::styled(
+            xai_grok_i18n::t(waiting_text).into_owned(),
+            Style::default().fg(theme.gray),
+        ))
+        .alignment(Alignment::Center),
     );
     Paragraph::new(lines)
         .wrap(Wrap { trim: false })
@@ -1436,7 +1462,8 @@ fn render_welcome_authenticating(
             }
 
             let msg_height = if auth_url.is_some() {
-                let header_rows = (AUTH_HEADER.len() as u16).div_ceil(inner_width);
+                let header_rows =
+                    (xai_grok_i18n::t(AUTH_HEADER).width() as u16).div_ceil(inner_width.max(1));
                 header_rows + auth_copy_block_rows(inner_width)
             } else {
                 1u16
@@ -1461,7 +1488,7 @@ fn render_welcome_authenticating(
             if auth_url.is_some() {
                 lines.push(
                     Line::from(Span::styled(
-                        AUTH_HEADER,
+                        xai_grok_i18n::t(AUTH_HEADER).into_owned(),
                         Style::default().fg(theme.gray_bright),
                     ))
                     .alignment(Alignment::Center),
@@ -1470,7 +1497,7 @@ fn render_welcome_authenticating(
             } else {
                 lines.push(
                     Line::from(Span::styled(
-                        "Waiting for auth URL...",
+                        xai_grok_i18n::t("Waiting for auth URL...").into_owned(),
                         Style::default().fg(theme.gray),
                     ))
                     .alignment(Alignment::Center),
@@ -2508,8 +2535,9 @@ pub(crate) fn render_session_picker_body(
         });
     }
 
+    let resume_title = xai_grok_i18n::t("Resume session");
     let config = PickerConfig {
-        title: Some("Resume session"),
+        title: Some(resume_title.as_ref()),
         show_search_hint: true,
         expandable: true,
         esc_clears_query: true,

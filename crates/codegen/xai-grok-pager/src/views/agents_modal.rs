@@ -1035,13 +1035,18 @@ pub fn render_agents_modal(
         .position(|t| *t == state.active_tab)
         .unwrap_or(0);
     state.window.active_tab = active_idx;
-    let tab_labels: Vec<&str> = AgentsTab::ALL.iter().map(|t| t.label()).collect();
+    let tab_labels_owned: Vec<_> = AgentsTab::ALL
+        .iter()
+        .map(|t| xai_grok_i18n::t(t.label()))
+        .collect();
+    let tab_labels: Vec<&str> = tab_labels_owned.iter().map(|s| s.as_ref()).collect();
     let shortcuts: Vec<Shortcut<'_>> = match state.active_tab {
         AgentsTab::Agents => build_agents_tab_shortcuts(state),
         AgentsTab::Personas => build_personas_tab_shortcuts(state),
     };
+    let agents_title = xai_grok_i18n::t("Agents");
     let config = ModalWindowConfig {
-        title: "Agents",
+        title: agents_title.as_ref(),
         tabs: Some(&tab_labels),
         shortcuts: &shortcuts,
         sizing: modal_sizing(compact),
@@ -1282,11 +1287,16 @@ fn render_agents_tab(
     let filtered = state.filtered_indices();
     if filtered.is_empty() {
         let msg = if state.search_query().is_empty() {
-            "No agents found"
+            xai_grok_i18n::t("No agents found")
         } else {
-            "No matching agents"
+            xai_grok_i18n::t("No matching agents")
         };
-        buf.set_string(content_area.x, y, msg, Style::default().fg(theme.gray_dim));
+        buf.set_string(
+            content_area.x,
+            y,
+            msg.as_ref(),
+            Style::default().fg(theme.gray_dim),
+        );
         return;
     }
     let visible_width = content_area.width as usize;
@@ -1573,11 +1583,16 @@ fn render_personas_tab(
     let filtered = state.filtered_persona_indices();
     if filtered.is_empty() {
         let msg = if state.personas.is_empty() {
-            "No personas available"
+            xai_grok_i18n::t("No personas available")
         } else {
-            "No matching personas"
+            xai_grok_i18n::t("No matching personas")
         };
-        buf.set_string(content_area.x, y, msg, Style::default().fg(theme.gray_dim));
+        buf.set_string(
+            content_area.x,
+            y,
+            msg.as_ref(),
+            Style::default().fg(theme.gray_dim),
+        );
         return;
     }
     let mut rows: Vec<PersonaFlatRow> = Vec::new();
@@ -2050,9 +2065,14 @@ pub fn handle_agents_key(state: &mut AgentsModalState, key: &KeyEvent) -> Agents
         let outcome = state.search.handle_key(key);
         return finish_search_edit(state, outcome);
     }
-    let tab_labels: Vec<&str> = AgentsTab::ALL.iter().map(|t| t.label()).collect();
+    let tab_labels_owned: Vec<_> = AgentsTab::ALL
+        .iter()
+        .map(|t| xai_grok_i18n::t(t.label()))
+        .collect();
+    let tab_labels: Vec<&str> = tab_labels_owned.iter().map(|s| s.as_ref()).collect();
+    let agents_title = xai_grok_i18n::t("Agents");
     let config = ModalWindowConfig {
-        title: "Agents",
+        title: agents_title.as_ref(),
         tabs: Some(&tab_labels),
         shortcuts: &[],
         sizing: modal_sizing(false),
