@@ -7,6 +7,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Widget};
+use unicode_width::UnicodeWidthStr;
 
 /// Shares its row with the buttons.
 const PRIVACY_BANNER_TITLE: &str = "Help improve Grok";
@@ -75,18 +76,26 @@ impl PrivacyBannerRects {
     }
 }
 
+fn cols(s: &str) -> u16 {
+    UnicodeWidthStr::width(s) as u16
+}
+
+fn loc(s: &str) -> std::borrow::Cow<'_, str> {
+    xai_grok_i18n::t(s)
+}
+
 fn button_block_width() -> u16 {
-    (OPT_OUT_LABEL.len() + 1 + OPT_IN_LABEL.len()) as u16
+    cols(loc(OPT_OUT_LABEL).as_ref()) + 1 + cols(loc(OPT_IN_LABEL).as_ref())
 }
 
 fn legal_width(variant: &[LegalSegment]) -> u16 {
-    variant.iter().map(|(text, _)| text.len() as u16).sum()
+    variant.iter().map(|(text, _)| cols(loc(text).as_ref())).sum()
 }
 
 /// Buttons render whole or not at all, and never at the cost of the title.
 /// A clipped/overflowing `[Opt in]` must not leave a click target in the blank margin (a stray click there would silently opt the user in).
 fn buttons_fit(area_width: u16) -> bool {
-    area_width >= PRIVACY_BANNER_TITLE.len() as u16 + 1 + button_block_width()
+    area_width >= cols(loc(PRIVACY_BANNER_TITLE).as_ref()) + 1 + button_block_width()
 }
 
 fn title_width(area_width: u16) -> u16 {
@@ -101,8 +110,12 @@ fn wrap_to(width: usize) -> Vec<std::borrow::Cow<'static, str>> {
     if width == 0 {
         return vec![];
     }
+    let desc = loc(PRIVACY_BANNER_DESC);
     let opts = textwrap::Options::new(width).wrap_algorithm(textwrap::WrapAlgorithm::FirstFit);
-    textwrap::wrap(PRIVACY_BANNER_DESC, opts)
+    textwrap::wrap(desc.as_ref(), opts)
+        .into_iter()
+        .map(|c| std::borrow::Cow::Owned(c.into_owned()))
+        .collect()
 }
 
 fn body_lines(area_width: u16) -> Vec<std::borrow::Cow<'static, str>> {
@@ -151,10 +164,11 @@ pub(crate) fn render(
         mouse_pos.is_some_and(|(mx, my)| r.contains(ratatui::layout::Position::new(mx, my)))
     };
 
+    let title = loc(PRIVACY_BANNER_TITLE);
     buf.set_stringn(
         area.x,
         area.y,
-        PRIVACY_BANNER_TITLE,
+        title.as_ref(),
         title_width(area.width) as usize,
         Style::default().fg(theme.text_primary),
     );
@@ -188,7 +202,8 @@ pub(crate) fn render(
         let mut x = area.x;
         let mut spans = Vec::with_capacity(variant.len());
         for (text, url) in variant {
-            let w = text.len() as u16;
+            let shown = loc(text);
+            let w = cols(shown.as_ref());
             let style = match url {
                 None => gray,
                 Some(url) => {
@@ -211,7 +226,7 @@ pub(crate) fn render(
                     Style::default().fg(fg).add_modifier(Modifier::UNDERLINED)
                 }
             };
-            spans.push(Span::styled(*text, style));
+            spans.push(Span::styled(shown.into_owned(), style));
             x += w;
         }
         Paragraph::new(Line::from(spans)).render(
@@ -233,16 +248,18 @@ pub(crate) fn render(
             policy: policy_rect,
         };
     }
+    let opt_out = loc(OPT_OUT_LABEL);
+    let opt_in = loc(OPT_IN_LABEL);
     let opt_out_rect = Rect {
         x: area.x + area.width - button_block_width(),
         y: area.y,
-        width: OPT_OUT_LABEL.len() as u16,
+        width: cols(opt_out.as_ref()),
         height: 1,
     };
     let opt_in_rect = Rect {
         x: opt_out_rect.x + opt_out_rect.width + 1,
         y: area.y,
-        width: OPT_IN_LABEL.len() as u16,
+        width: cols(opt_in.as_ref()),
         height: 1,
     };
     let opt_out_style = if hovered(opt_out_rect) {
@@ -258,14 +275,14 @@ pub(crate) fn render(
     buf.set_stringn(
         opt_out_rect.x,
         opt_out_rect.y,
-        OPT_OUT_LABEL,
+        opt_out.as_ref(),
         opt_out_rect.width as usize,
         opt_out_style,
     );
     buf.set_stringn(
         opt_in_rect.x,
         opt_in_rect.y,
-        OPT_IN_LABEL,
+        opt_in.as_ref(),
         opt_in_rect.width as usize,
         opt_in_style,
     );

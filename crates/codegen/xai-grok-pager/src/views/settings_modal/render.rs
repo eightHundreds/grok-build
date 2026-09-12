@@ -19,6 +19,10 @@ use crate::views::modal_window::{
     self, ModalContentArea, ModalSizing, ModalWindowConfig, Shortcut,
 };
 
+fn loc(s: &str) -> std::borrow::Cow<'_, str> {
+    xai_grok_i18n::t(s)
+}
+
 // ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
@@ -50,45 +54,59 @@ pub fn render_settings_modal(
     };
 
     // Breadcrumb title for sub-modes: "Settings › <label>".
+    let modal_title = loc(MODAL_TITLE);
     let breadcrumb_owned: String;
     let title: &str = if let Some(o) = overlay {
         breadcrumb_owned = format!(
-            "{MODAL_TITLE} {} {}",
+            "{} {} {}",
+            modal_title,
             crate::glyphs::chevron(),
-            o.breadcrumb_suffix
+            loc(o.breadcrumb_suffix)
         );
         &breadcrumb_owned
     } else {
         match &state.state.mode {
             SettingsMode::PickingEnum { key, .. } => {
                 if let Some(meta) = state.registry.find(key) {
-                    breadcrumb_owned =
-                        format!("{MODAL_TITLE} {} {}", crate::glyphs::chevron(), meta.label);
+                    breadcrumb_owned = format!(
+                        "{} {} {}",
+                        modal_title,
+                        crate::glyphs::chevron(),
+                        loc(meta.label)
+                    );
                     &breadcrumb_owned
                 } else {
-                    MODAL_TITLE
+                    modal_title.as_ref()
                 }
             }
 
             SettingsMode::EditingString { key, .. } | SettingsMode::EditingInt { key, .. } => {
                 if let Some(meta) = state.registry.find(key) {
-                    breadcrumb_owned =
-                        format!("{MODAL_TITLE} {} {}", crate::glyphs::chevron(), meta.label);
+                    breadcrumb_owned = format!(
+                        "{} {} {}",
+                        modal_title,
+                        crate::glyphs::chevron(),
+                        loc(meta.label)
+                    );
                     &breadcrumb_owned
                 } else {
-                    MODAL_TITLE
+                    modal_title.as_ref()
                 }
             }
             SettingsMode::PickingGroup { key, .. } => {
                 if let Some(meta) = state.registry.find(key) {
-                    breadcrumb_owned =
-                        format!("{MODAL_TITLE} {} {}", crate::glyphs::chevron(), meta.label);
+                    breadcrumb_owned = format!(
+                        "{} {} {}",
+                        modal_title,
+                        crate::glyphs::chevron(),
+                        loc(meta.label)
+                    );
                     &breadcrumb_owned
                 } else {
-                    MODAL_TITLE
+                    modal_title.as_ref()
                 }
             }
-            _ => MODAL_TITLE,
+            _ => modal_title.as_ref(),
         }
     };
 
@@ -588,7 +606,7 @@ pub(super) fn render_rows(
 
         match row {
             RowEntry::Header { category } => {
-                let label = category.label();
+                let label = loc(category.label());
                 let header_style = Style::default()
                     .fg(theme.gray)
                     .bg(theme.bg_base)
@@ -668,9 +686,10 @@ pub(super) fn render_rows(
                 // Decide 1 vs 2 line layout; fall back to 1 if viewport is tight.
                 let value_display = value_display(meta, value, lock);
                 let show_restart_pill_for_layout = meta.restart_required && is_expanded;
+                let row_label = loc(meta.label);
                 let layout_decision = row_layout(
                     area.width,
-                    meta.label,
+                    row_label.as_ref(),
                     &value_display,
                     show_restart_pill_for_layout,
                 );
@@ -801,7 +820,12 @@ fn compute_filtered_row_heights(state: &SettingsModalState, area_width: u16) -> 
                 let lock = state.row_lock(key);
                 let value_display = value_display(meta, &value, lock);
                 let show_restart_pill = meta.restart_required && is_expanded;
-                let layout = row_layout(area_width, meta.label, &value_display, show_restart_pill);
+                let layout = row_layout(
+                    area_width,
+                    loc(meta.label).as_ref(),
+                    &value_display,
+                    show_restart_pill,
+                );
                 let mut h: u16 = match layout {
                     RowLayout::OneLine => 1,
                     RowLayout::TwoLine | RowLayout::TwoLineWithLabelTruncation => 2,
@@ -834,8 +858,8 @@ fn wrapped_description_height(
     if wrap_w == 0 {
         return 0;
     }
-    let text = lock_reason.unwrap_or(meta.description);
-    let line = Line::from(Span::raw(text));
+    let text = loc(lock_reason.unwrap_or(meta.description));
+    let line = Line::from(Span::raw(text.as_ref()));
     let wrapped = crate::render::wrapping::word_wrap_line(&line, wrap_w as usize);
     (wrapped.len() as u16).min(cap)
 }
@@ -860,15 +884,17 @@ fn render_sub_pane_header(
     description: &str,
     min_non_desc_rows: u16,
 ) -> u16 {
+    let title = loc(title);
+    let description = loc(description);
     // ── Row 0: title (truncated with `…`). ────────────────────────
     let title_style = Style::default()
         .fg(theme.text_primary)
         .bg(theme.bg_base)
         .add_modifier(Modifier::BOLD);
     let title_text: std::borrow::Cow<'_, str> = if title.width() <= area.width as usize {
-        std::borrow::Cow::Borrowed(title)
+        title
     } else {
-        std::borrow::Cow::Owned(truncate_str(title, area.width as usize))
+        std::borrow::Cow::Owned(truncate_str(title.as_ref(), area.width as usize))
     };
     let title_w = (title_text.width() as u16).min(area.width);
     buf.set_span(
@@ -879,7 +905,7 @@ fn render_sub_pane_header(
     );
 
     // ── Row 1+: word-wrapped description ──────────────────────────
-    let description_wrapped = wrap_description(description, area.width);
+    let description_wrapped = wrap_description(description.as_ref(), area.width);
     let desc_rows: u16 = description_wrapped.len() as u16;
     let has_description =
         desc_rows > 0 && area.height >= min_non_desc_rows.saturating_add(desc_rows);
@@ -1093,10 +1119,11 @@ pub(super) fn render_picking_enum(
             y_cursor = y_cursor.saturating_add(layout.height);
             continue;
         }
-        let display_text: std::borrow::Cow<'_, str> = if choice.display.width() <= display_room {
-            std::borrow::Cow::Borrowed(choice.display.as_str())
+        let choice_display = loc(&choice.display);
+        let display_text: std::borrow::Cow<'_, str> = if choice_display.width() <= display_room {
+            choice_display
         } else {
-            std::borrow::Cow::Owned(truncate_str(&choice.display, display_room))
+            std::borrow::Cow::Owned(truncate_str(choice_display.as_ref(), display_room))
         };
         let display_w =
             (display_text.width() as u16).min(area.width.saturating_sub(PICKER_PREFIX_W));
@@ -1107,7 +1134,8 @@ pub(super) fn render_picking_enum(
             display_w,
         );
 
-        let has_choice_desc = !choice.description.trim().is_empty();
+        let choice_description = loc(&choice.description);
+        let has_choice_desc = !choice_description.trim().is_empty();
         if !has_choice_desc {
             y_cursor = y_cursor.saturating_add(layout.height);
             continue;
@@ -1135,10 +1163,10 @@ pub(super) fn render_picking_enum(
 
         // Narrow fallback: truncate on one line if wrapping fails.
         if layout.wrap_lines.is_empty() {
-            let desc_text: std::borrow::Cow<'_, str> = if choice.description.width() <= desc_room {
-                std::borrow::Cow::Borrowed(choice.description.as_str())
+            let desc_text: std::borrow::Cow<'_, str> = if choice_description.width() <= desc_room {
+                choice_description
             } else {
-                std::borrow::Cow::Owned(truncate_str(&choice.description, desc_room))
+                std::borrow::Cow::Owned(truncate_str(choice_description.as_ref(), desc_room))
             };
             let desc_w = (desc_text.width() as u16).min(area.x + area.width - desc_x);
             buf.set_span(
@@ -1337,10 +1365,11 @@ fn render_picking_group(
             .max(label_x);
         if value_x > label_x {
             let label_room = (value_x - label_x).saturating_sub(1) as usize;
-            let label_text: std::borrow::Cow<'_, str> = if child_meta.label.width() <= label_room {
-                std::borrow::Cow::Borrowed(child_meta.label)
+            let child_label = loc(child_meta.label);
+            let label_text: std::borrow::Cow<'_, str> = if child_label.width() <= label_room {
+                child_label
             } else {
-                std::borrow::Cow::Owned(truncate_str(child_meta.label, label_room))
+                std::borrow::Cow::Owned(truncate_str(child_label.as_ref(), label_room))
             };
             let label_w = (label_text.width() as u16).min((value_x - label_x).saturating_sub(1));
             buf.set_span(
@@ -1366,8 +1395,10 @@ struct PickerChoiceLayout {
 
 /// Compute layout for one picker choice: its height and wrapped description lines.
 fn compute_picker_choice_layout(choice: &OwnedEnumChoice, area_width: u16) -> PickerChoiceLayout {
+    let choice_display = loc(&choice.display);
+    let choice_description = loc(&choice.description);
     // No description means 1 line, symbol and display only
-    if choice.description.trim().is_empty() {
+    if choice_description.trim().is_empty() {
         return PickerChoiceLayout {
             height: 1,
             wrap_lines: Vec::new(),
@@ -1377,7 +1408,7 @@ fn compute_picker_choice_layout(choice: &OwnedEnumChoice, area_width: u16) -> Pi
     // The desc column is PICKER_PREFIX_W + display_width + PICKER_SEPARATOR_W
     // Display gets truncated if it'd overflow; mirror that for layout math.
     let display_room = (area_width as usize).saturating_sub(PICKER_PREFIX_W as usize);
-    let display_w = choice.display.width().min(display_room) as u16;
+    let display_w = choice_display.width().min(display_room) as u16;
     let after_display = PICKER_PREFIX_W.saturating_add(display_w);
     let after_sep = after_display.saturating_add(PICKER_SEPARATOR_W);
 
@@ -1397,7 +1428,7 @@ fn compute_picker_choice_layout(choice: &OwnedEnumChoice, area_width: u16) -> Pi
         };
     }
 
-    let line = Line::from(Span::raw(choice.description.as_str()));
+    let line = Line::from(Span::raw(choice_description.as_ref()));
     let wrapped = crate::render::wrapping::word_wrap_line(&line, desc_width);
 
     let wrap_lines: Vec<String> = wrapped
@@ -2083,19 +2114,19 @@ pub(super) fn value_display(
         return ROW_ZDR_VALUE.to_string();
     }
     let mut display = match value {
-        SettingValue::Bool(b) => if *b { "on" } else { "off" }.to_string(),
+        SettingValue::Bool(b) => loc(if *b { "on" } else { "off" }).into_owned(),
         SettingValue::String(s) => {
             if s.is_empty() && matches!(meta.kind, SettingKind::DynamicEnum { .. }) {
-                "(no override)".to_string()
+                loc("(no override)").into_owned()
             } else {
                 s.clone()
             }
         }
-        SettingValue::Enum(e) => display_for_enum_canonical(&meta.kind, e).to_string(),
+        SettingValue::Enum(e) => loc(display_for_enum_canonical(&meta.kind, e)).into_owned(),
         SettingValue::Int(i) => i.to_string(),
     };
     if lock == Some(CodingDataSharingLock::TeamManaged) {
-        display.push_str(ROW_ADMIN_MANAGED_SUFFIX);
+        display.push_str(loc(ROW_ADMIN_MANAGED_SUFFIX).as_ref());
     }
     display
 }
@@ -2118,7 +2149,7 @@ pub(super) fn row_layout(
     show_restart_pill: bool,
 ) -> RowLayout {
     let restart_w = if show_restart_pill {
-        ROW_RESTART_PILL_W
+        loc(" \u{00B7} restart").width() as u16
     } else {
         0
     };
@@ -2216,6 +2247,7 @@ pub(super) fn render_setting_row(
 
     let value_text = value_display(meta, value, lock);
     let value_text = value_text.as_str();
+    let row_label = loc(meta.label);
 
     let value_style = if lock.is_some() || matches!(value, SettingValue::Bool(false)) {
         Style::default().fg(theme.gray).bg(bg)
@@ -2242,7 +2274,7 @@ pub(super) fn render_setting_row(
 
     // Pill only while expanded: change-time feedback is the toast's job, and a collapsed non-default row would misread as "restart pending" forever
     let show_restart_pill = meta.restart_required && is_expanded;
-    let restart_pill_text = " \u{00B7} restart";
+    let restart_pill_text = loc(" \u{00B7} restart");
     let restart_w = if show_restart_pill {
         restart_pill_text.width() as u16
     } else {
@@ -2262,7 +2294,7 @@ pub(super) fn render_setting_row(
     );
 
     // Fall back to one-line if only 1 line was allocated.
-    let layout_decision = row_layout(area.width, meta.label, value_text, show_restart_pill);
+    let layout_decision = row_layout(area.width, row_label.as_ref(), value_text, show_restart_pill);
     let layout = if area.height < 2 {
         // Only 1 line is available: collapse to a one-line render and accept that the label might collide with the value column
         RowLayout::OneLine
@@ -2282,7 +2314,7 @@ pub(super) fn render_setting_row(
             let chevron_x = restart_x_line1.saturating_sub(ROW_CHEVRON_COL_W);
             let value_x = chevron_x.saturating_sub(value_w + 1);
 
-            let label_text = format!("{triangle} {}", meta.label);
+            let label_text = format!("{triangle} {}", row_label);
             let label_w = label_text.width() as u16;
             let label_max_x = area.x.saturating_add(label_w);
             // Cap label end at value_x to never collide with the value column.
@@ -2350,11 +2382,11 @@ pub(super) fn render_setting_row(
                     if label_avail == 0 {
                         ""
                     } else {
-                        label_text_owned = truncate_str(meta.label, label_avail as usize);
+                        label_text_owned = truncate_str(row_label.as_ref(), label_avail as usize);
                         &label_text_owned
                     }
                 }
-                _ => meta.label,
+                _ => row_label.as_ref(),
             };
 
             let full_label_text = format!("{triangle} {label_text}");
@@ -2437,14 +2469,14 @@ fn render_expanded_description(
         .fg(theme.gray)
         .bg(theme.bg_base)
         .add_modifier(Modifier::ITALIC);
-    let desc_text = lock_reason.unwrap_or(meta.description);
+    let desc_text = loc(lock_reason.unwrap_or(meta.description));
     // Indent 4 cols to nest under the label.
     let indent = 4u16.min(area.width);
     let wrap_w = area.width.saturating_sub(indent);
     if wrap_w == 0 {
         return;
     }
-    let line = Line::from(Span::styled(desc_text, desc_style));
+    let line = Line::from(Span::styled(desc_text.as_ref(), desc_style));
     let wrapped = crate::render::wrapping::word_wrap_line(&line, wrap_w as usize);
     for (i, wrapped_line) in wrapped.iter().enumerate() {
         if (i as u16) >= area.height {
@@ -2484,10 +2516,11 @@ fn render_setting_row_no_value(
         .add_modifier(Modifier::BOLD);
 
     let label_max_w = max_label_w;
-    let label_truncated: std::borrow::Cow<'_, str> = if meta.label.width() <= label_max_w as usize {
-        std::borrow::Cow::Borrowed(meta.label)
+    let row_label = loc(meta.label);
+    let label_truncated: std::borrow::Cow<'_, str> = if row_label.width() <= label_max_w as usize {
+        row_label
     } else {
-        std::borrow::Cow::Owned(truncate_str(meta.label, label_max_w as usize))
+        std::borrow::Cow::Owned(truncate_str(row_label.as_ref(), label_max_w as usize))
     };
     let text = format!(" !   {label_truncated} (no read mapping)");
     let w = text.width() as u16;
@@ -2531,7 +2564,7 @@ fn render_setting_group_row(
 
     // Triangle prefix mirrors normal rows: "▾" expanded, "▸" collapsed (the group's description expands inline via Right/l like other rows)
     let triangle = if is_expanded { "\u{25BE}" } else { "\u{25B8}" };
-    let label_text = format!("{triangle} {}", meta.label);
+    let label_text = format!("{triangle} {}", loc(meta.label));
     let label_cap = chevron_x.saturating_sub(area.x).saturating_sub(1);
     let label_w = (label_text.width() as u16).min(label_cap);
     if label_w > 0 {

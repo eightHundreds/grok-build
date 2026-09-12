@@ -379,8 +379,9 @@ pub fn render_memory_modal(
     let theme = Theme::current();
     let shortcuts = build_shortcuts(&state.mode, state.memory_enabled, state.fullscreen);
 
+    let memory_title = xai_grok_i18n::t("Memory");
     let modal_config = ModalWindowConfig {
-        title: "Memory",
+        title: memory_title.as_ref(),
         tabs: None,
         shortcuts: &shortcuts,
         sizing: if state.fullscreen {

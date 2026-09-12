@@ -157,6 +157,13 @@ mod tests {
         assert_eq!(t("Back to Home").as_ref(), "返回主页");
         assert_eq!(t("Commands").as_ref(), "命令");
         assert_eq!(t("↑/↓ nav").as_ref(), "↑/↓ 导航");
+        assert_eq!(t("Help improve Grok").as_ref(), "帮助改进 Grok");
+        assert_eq!(t("New worktree").as_ref(), "新建工作树");
+        assert_eq!(t("Yes, proceed").as_ref(), "是，继续");
+        assert_eq!(t("Build anything").as_ref(), "构建任何东西");
+        assert_eq!(t("Tip: ").as_ref(), "提示：");
+        assert_eq!(t("Always allow:").as_ref(), "始终允许：");
+        assert_eq!(t("Return to the welcome screen").as_ref(), "返回欢迎屏");
     }
 
     #[test]

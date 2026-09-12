@@ -2785,7 +2785,11 @@ pub fn render_extensions_modal(
     }
 
     // Tab labels and active index.
-    let labels: Vec<&str> = ExtensionsTab::ALL.iter().map(|t| t.label()).collect();
+    let labels_owned: Vec<_> = ExtensionsTab::ALL
+        .iter()
+        .map(|t| xai_grok_i18n::t(t.label()))
+        .collect();
+    let labels: Vec<&str> = labels_owned.iter().map(|s| s.as_ref()).collect();
     let active_idx = ExtensionsTab::ALL
         .iter()
         .position(|t| *t == state.active_tab)

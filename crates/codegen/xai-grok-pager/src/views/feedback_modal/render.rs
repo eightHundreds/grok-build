@@ -38,7 +38,16 @@ impl FeedbackModalState {
             None if fields.is_empty() => Self::WRITE_SHORTCUTS,
             None => Self::WRITE_SHORTCUTS_WITH_LABELS,
         };
-        let config = Self::window_config(shortcuts, compact, trace_selected.is_some());
+        let title = xai_grok_i18n::t("Feedback");
+        let tabs_owned: Vec<_> = FEEDBACK_TABS.iter().map(|t| xai_grok_i18n::t(*t)).collect();
+        let tabs: Vec<&str> = tabs_owned.iter().map(|s| s.as_ref()).collect();
+        let config = Self::window_config(
+            shortcuts,
+            compact,
+            trace_selected.is_some(),
+            title.as_ref(),
+            Some(&tabs),
+        );
         // Stale label rects must not keep catching clicks after a failed or label-less render.
         self.metadata_row_areas.clear();
         let areas = modal_window::render_modal_window(buf, area, &mut self.window, &config, theme)?;
@@ -132,7 +141,10 @@ impl FeedbackModalState {
             },
         ];
         modal_window::push_vim_nav_search_hint(&mut shortcuts, is_searching);
-        let config = Self::window_config(&shortcuts, compact, false);
+        let title = xai_grok_i18n::t("Feedback");
+        let tabs_owned: Vec<_> = FEEDBACK_TABS.iter().map(|t| xai_grok_i18n::t(*t)).collect();
+        let tabs: Vec<&str> = tabs_owned.iter().map(|s| s.as_ref()).collect();
+        let config = Self::window_config(&shortcuts, compact, false, title.as_ref(), Some(&tabs));
         let areas = modal_window::render_modal_window(buf, area, &mut self.window, &config, theme)?;
         let content = areas.content;
         self.draft_search_area = None;
@@ -466,14 +478,16 @@ impl FeedbackModalState {
         shortcuts: &'a [Shortcut<'a>],
         compact: bool,
         trace_step: bool,
+        title: &'a str,
+        tabs: Option<&'a [&'a str]>,
     ) -> ModalWindowConfig<'a> {
         let mut sizing = ModalSizing::large().with_compact(compact);
         if trace_step {
             sizing.v_margin = sizing.v_margin.min(3);
         }
         ModalWindowConfig {
-            title: "Feedback",
-            tabs: Some(FEEDBACK_TABS),
+            title,
+            tabs,
             shortcuts,
             sizing,
             fold_info: None,

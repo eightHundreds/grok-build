@@ -466,7 +466,10 @@ pub fn render_permission_view(
         buf.set_line(
             content_x,
             y,
-            &Line::from(Span::styled(state.title.clone(), title_style)),
+            &Line::from(Span::styled(
+                xai_grok_i18n::t(&state.title).into_owned(),
+                title_style,
+            )),
             content_width,
         );
     }
@@ -1358,6 +1361,12 @@ fn build_permission_option_line<'a>(
     }
 
     let (label_prefix, scope_words) = dynamic_option_label(option, selected_words, mcp_scope);
+    let label_prefix = if scope_words.is_some() {
+        let trimmed = label_prefix.trim_end();
+        format!("{} ", xai_grok_i18n::t(trimmed))
+    } else {
+        xai_grok_i18n::t(&label_prefix).into_owned()
+    };
     let scope_is_mcp = mcp_scope.is_some();
 
     let marker = if is_cursor {
@@ -1441,7 +1450,7 @@ fn build_reject_once_line<'a>(
         (preview, Style::default().fg(theme.text_primary).bg(row_bg))
     } else {
         (
-            "No, reject (type to add feedback)".to_string(),
+            xai_grok_i18n::t("No, reject (type to add feedback)").into_owned(),
             Style::default().fg(theme.gray).bg(row_bg),
         )
     };

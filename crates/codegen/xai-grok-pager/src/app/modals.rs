@@ -315,8 +315,9 @@ impl AgentView {
             } else {
                 shortcuts_help::modal_footer(*filter_active)
             };
+            let shortcuts_title = xai_grok_i18n::t("Keyboard Shortcuts");
             let chrome_cfg = mw::ModalWindowConfig {
-                title: "Keyboard Shortcuts",
+                title: shortcuts_title.as_ref(),
                 tabs: None,
                 shortcuts: &footer,
                 sizing: crate::views::shortcuts_help::modal_sizing(
@@ -992,8 +993,9 @@ impl AgentView {
 
                 // Chat-mode picker lists conversations only: the source filter and local-disk delete are dead weight there
                 let chat_mode = self.app_chat_mode;
+                let resume_title = xai_grok_i18n::t("Resume session");
                 let config = PickerConfig {
-                    title: Some("Resume session"),
+                    title: Some(resume_title.as_ref()),
                     show_search_hint: true,
                     expandable: true,
                     esc_clears_query: false, // Esc returns to palette or closes
@@ -1280,8 +1282,9 @@ impl AgentView {
                     })
                 })
                 .collect();
+            let howto_title = xai_grok_i18n::t("How-to Guides");
             let config = PickerConfig {
-                title: Some("How-to Guides"),
+                title: Some(howto_title.as_ref()),
                 show_search_hint: false,
                 expandable: false,
                 esc_clears_query: true,
@@ -1806,12 +1809,13 @@ impl AgentView {
             } = active_modal
             {
                 // Arg picker: ModalWindow chrome and picker content
-                let title = match command.as_str() {
+                let title_key = match command.as_str() {
                     "model" | "m" if !args_query.is_empty() => "Pick reasoning effort",
                     "model" | "m" => "Pick model",
                     "theme" | "t" => "Pick theme",
                     _ => "Pick option",
                 };
+                let title = xai_grok_i18n::t(title_key);
                 let picker_entries: Vec<PickerEntry> = items
                     .iter()
                     .enumerate()
@@ -1838,7 +1842,7 @@ impl AgentView {
                 // Surface `i search` in the footer when vim nav mode is active.
                 mw::push_vim_nav_search_hint(&mut picker_shortcuts, state.search_active);
                 let modal_config = ModalWindowConfig {
-                    title,
+                    title: title.as_ref(),
                     tabs: None,
                     shortcuts: &picker_shortcuts,
                     sizing: ModalSizing {
@@ -1947,8 +1951,9 @@ impl AgentView {
                     mw::push_vim_nav_search_hint(&mut session_shortcuts, state.search_active);
                 }
                 let compact = self.scrollback.appearance().prompt.compact;
+                let resume_title = xai_grok_i18n::t("Resume session");
                 let modal_config = ModalWindowConfig {
-                    title: "Resume session",
+                    title: resume_title.as_ref(),
                     tabs: None,
                     shortcuts: &session_shortcuts,
                     sizing: ModalSizing {
@@ -2259,8 +2264,9 @@ impl AgentView {
                 ];
 
                 let compact = self.scrollback.appearance().prompt.compact;
+                let memory_note_title = xai_grok_i18n::t("Memory Note");
                 let modal_config = mw::ModalWindowConfig {
-                    title: "Memory Note",
+                    title: memory_note_title.as_ref(),
                     tabs: None,
                     shortcuts: &shortcuts,
                     sizing: mw::ModalSizing {
@@ -2340,8 +2346,9 @@ impl AgentView {
                 let picker_entries = rows.picker_entries(state, expanded_ids, &help_refs);
                 let non_sel: Vec<bool> = vec![false; picker_entries.len()];
                 let footer = shortcuts_help::modal_footer(*filter_active);
+                let shortcuts_title = xai_grok_i18n::t("Keyboard Shortcuts");
                 let modal_config = mw::ModalWindowConfig {
-                    title: "Keyboard Shortcuts",
+                    title: shortcuts_title.as_ref(),
                     tabs: None,
                     shortcuts: &footer,
                     sizing: shortcuts_help::modal_sizing(compact),

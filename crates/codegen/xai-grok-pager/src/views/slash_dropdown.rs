@@ -270,10 +270,11 @@ fn flat_line_count(items: &[SuggestionRow], row_w: usize, cap: usize) -> usize {
     let mut lines = 0usize;
     for item in items {
         let desc_w = BadgeLayout::compute(item, row_w, desc_indent).desc_w;
-        lines += if item.description.is_empty() {
+        let desc = xai_grok_i18n::t(&item.description);
+        lines += if desc.is_empty() {
             1
         } else {
-            simple_word_wrap(&item.description, desc_w).len()
+            simple_word_wrap(desc.as_ref(), desc_w).len()
         };
         if lines >= cap {
             return cap;
@@ -345,10 +346,11 @@ fn build_item_lines(
     let desc_indent = PREFIX_W + label_col_w + LABEL_DESC_GAP;
     let layout = BadgeLayout::compute(item, total_w, desc_indent);
 
-    let desc_lines = if item.description.is_empty() {
+    let desc = xai_grok_i18n::t(&item.description);
+    let desc_lines = if desc.is_empty() {
         Vec::new()
     } else {
-        simple_word_wrap(&item.description, layout.desc_w)
+        simple_word_wrap(desc.as_ref(), layout.desc_w)
     };
 
     // 2. First line: prefix, label, padding, [tag], gap, first desc, then the right badge.

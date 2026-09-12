@@ -56,7 +56,7 @@ pub fn render_consent(
             message,
             buf,
             Style::default().fg(theme.gray_bright),
-            &notice.title,
+            xai_grok_i18n::t(&notice.title).as_ref(),
         );
         paint_body(message, buf, theme, &rows, hovered_link)
     } else {
@@ -66,7 +66,12 @@ pub fn render_consent(
         } else {
             TOO_SMALL
         };
-        paint_centered(message, buf, Style::default().fg(theme.gray), text);
+        paint_centered(
+            message,
+            buf,
+            Style::default().fg(theme.gray),
+            xai_grok_i18n::t(text).as_ref(),
+        );
         Vec::new()
     };
 

@@ -729,8 +729,9 @@ pub fn render_detail(
         return;
     };
     let footer = modal_footer_detail();
+    let shortcuts_title = xai_grok_i18n::t("Keyboard Shortcuts");
     let modal_config = mw::ModalWindowConfig {
-        title: "Keyboard Shortcuts",
+        title: shortcuts_title.as_ref(),
         tabs: None,
         shortcuts: &footer,
         sizing: modal_sizing(compact),
@@ -1296,8 +1297,9 @@ pub fn render_modal(
     let picker_entries = rows.picker_entries(state, expanded_ids, &help_refs);
     let non_sel: Vec<bool> = vec![false; picker_entries.len()];
     let footer = modal_footer(filter_active);
+    let shortcuts_title = xai_grok_i18n::t("Keyboard Shortcuts");
     let modal_config = mw::ModalWindowConfig {
-        title: "Keyboard Shortcuts",
+        title: shortcuts_title.as_ref(),
         tabs: None,
         shortcuts: &footer,
         sizing: modal_sizing(compact),
@@ -1407,8 +1409,9 @@ pub fn handle_modal_key(
     } else {
         modal_footer(filter_active)
     };
+    let shortcuts_title = xai_grok_i18n::t("Keyboard Shortcuts");
     let chrome_cfg = mw::ModalWindowConfig {
-        title: "Keyboard Shortcuts",
+        title: shortcuts_title.as_ref(),
         tabs: None,
         shortcuts: &footer,
         sizing: modal_sizing(compact),

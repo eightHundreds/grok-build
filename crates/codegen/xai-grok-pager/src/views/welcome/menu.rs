@@ -34,11 +34,16 @@ pub fn render_menu(
         .fg(theme.gray_bright)
         .bg(theme.bg_highlight);
 
+    let labels: Vec<_> = items
+        .iter()
+        .map(|(_, label)| xai_grok_i18n::t(label))
+        .collect();
     // Width: label + gap + key
     // Keep a 4-col gap between label and key for readability
     let content_min: u16 = items
         .iter()
-        .map(|(key, label)| cols(key) + cols(label) + 4)
+        .zip(labels.iter())
+        .map(|((key, _), label)| cols(key) + cols(label.as_ref()) + 4)
         .max()
         .unwrap_or(0);
     let menu_width = logo_visual_width(area.height)
@@ -56,7 +61,7 @@ pub fn render_menu(
 
     let mut rects = Vec::with_capacity(items.len());
     let mut y = menu_centered.y;
-    for (i, (key, label)) in items.iter().enumerate() {
+    for (i, (key, _)) in items.iter().enumerate() {
         if y >= menu_centered.y + menu_centered.height {
             break;
         }
@@ -65,7 +70,7 @@ pub fn render_menu(
         let key_width = cols(key);
         // The key sits at the right edge, so the label is cut to leave room for it.
         let label = crate::render::line_utils::truncate_str(
-            label,
+            labels[i].as_ref(),
             menu_centered.width.saturating_sub(key_width + 1) as usize,
         );
         let label_len = cols(&label);

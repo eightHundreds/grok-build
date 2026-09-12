@@ -558,7 +558,11 @@ pub fn render_usage_modal(
     compact: bool,
     theme: &Theme,
 ) {
-    let labels: Vec<&str> = UsageInfoTab::ALL.iter().map(|t| t.label()).collect();
+    let labels_owned: Vec<_> = UsageInfoTab::ALL
+        .iter()
+        .map(|t| xai_grok_i18n::t(t.label()))
+        .collect();
+    let labels: Vec<&str> = labels_owned.iter().map(|s| s.as_ref()).collect();
     state.window.active_tab = state.active_tab.index();
 
     let mut shortcuts: Vec<Shortcut> = vec![
@@ -924,9 +928,10 @@ fn allowance_lines(
     let mut lines: Vec<Line<'static>> = Vec::new();
 
     // "Weekly limit", "Monthly limit", or "Usage", plus the plan name
+    let usage_label = xai_grok_i18n::t(bal.usage_label());
     let header = match &state.ctx.subscription_tier {
-        Some(tier) => format!("{} ({tier})", bal.usage_label()),
-        None => bal.usage_label().to_string(),
+        Some(tier) => format!("{} ({tier})", usage_label),
+        None => usage_label.into_owned(),
     };
     lines.push(Line::styled(header, header_style(theme)));
     lines.push(Line::default());

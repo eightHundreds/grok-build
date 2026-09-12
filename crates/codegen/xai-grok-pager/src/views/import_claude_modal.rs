@@ -611,8 +611,9 @@ pub fn render_import_claude_modal(
             id: SHORTCUT_ID_CANCEL,
         },
     ];
+    let import_title = xai_grok_i18n::t("Import Claude settings");
     let config = ModalWindowConfig {
-        title: "Import Claude settings",
+        title: import_title.as_ref(),
         tabs: None,
         shortcuts: &shortcuts,
         sizing: ModalSizing::default().with_compact(compact),

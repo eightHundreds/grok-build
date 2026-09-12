@@ -453,6 +453,16 @@ fn build_search_haystack(m: &SettingMeta) -> String {
         s.push(' ');
         s.push_str(kw);
     }
+    let loc_label = xai_grok_i18n::t(m.label);
+    if loc_label.as_ref() != m.label {
+        s.push(' ');
+        s.push_str(&loc_label.to_lowercase());
+    }
+    let loc_desc = xai_grok_i18n::t(m.description);
+    if loc_desc.as_ref() != m.description {
+        s.push(' ');
+        s.push_str(&loc_desc.to_lowercase());
+    }
     s
 }
 

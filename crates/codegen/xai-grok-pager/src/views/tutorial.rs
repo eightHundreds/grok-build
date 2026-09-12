@@ -319,12 +319,18 @@ pub fn render_tutorial(buf: &mut Buffer, area: Rect, st: &mut TutorialState, com
                 return;
             };
             let next_hint = match TUTORIAL_TOPICS.get(index + 1) {
-                Some(next) => format!("\u{2192} next: {}", next.title),
-                None => "\u{2192} done".to_owned(),
+                Some(next) => xai_grok_i18n::t_fmt(
+                    "\u{2192} next: {title}",
+                    &[("title", xai_grok_i18n::t(next.title).as_ref())],
+                ),
+                None => xai_grok_i18n::t("\u{2192} done").into_owned(),
             };
+            let scroll_hint = xai_grok_i18n::t("\u{2191}/\u{2193} scroll");
+            let deeper_hint = xai_grok_i18n::t("d go deeper");
+            let list_hint = xai_grok_i18n::t("Esc list");
             let mut shortcuts = vec![
                 Shortcut {
-                    label: "\u{2191}/\u{2193} scroll",
+                    label: scroll_hint.as_ref(),
                     clickable: false,
                     id: 0,
                 },
@@ -336,22 +342,24 @@ pub fn render_tutorial(buf: &mut Buffer, area: Rect, st: &mut TutorialState, com
             ];
             if topic.go_deeper.is_some() {
                 shortcuts.push(Shortcut {
-                    label: "d go deeper",
+                    label: deeper_hint.as_ref(),
                     clickable: false,
                     id: 0,
                 });
             }
             shortcuts.push(Shortcut {
-                label: "Esc list",
+                label: list_hint.as_ref(),
                 clickable: false,
                 id: 0,
             });
+            let topic_title = xai_grok_i18n::t(topic.title);
+            let topic_content = crate::tutorial_docs_zh::localized_content(topic.title, topic.content);
             crate::views::modal::render_doc_viewer_overlay_with_shortcuts(
                 buf,
                 area,
                 &mut st.window,
-                topic.title,
-                topic_body(topic.content),
+                topic_title.as_ref(),
+                topic_body(topic_content),
                 &mut st.scroll,
                 &mut st.cached_lines,
                 compact,
@@ -367,12 +375,16 @@ pub fn render_tutorial(buf: &mut Buffer, area: Rect, st: &mut TutorialState, com
             else {
                 return;
             };
+            let Some((guide_title, guide_content)) = crate::docs::localized_howto_view(doc.title)
+            else {
+                return;
+            };
             crate::views::modal::render_doc_viewer_overlay(
                 buf,
                 area,
                 &mut st.window,
-                doc.title,
-                doc.content,
+                &guide_title,
+                guide_content,
                 &mut st.scroll,
                 &mut st.cached_lines,
                 compact,
@@ -384,7 +396,16 @@ pub fn render_tutorial(buf: &mut Buffer, area: Rect, st: &mut TutorialState, com
 }
 
 fn render_list(buf: &mut Buffer, area: Rect, st: &mut TutorialState, compact: bool, theme: &Theme) {
-    let progress = format!("{}/{} explored", st.viewed.len(), TUTORIAL_TOPICS.len());
+    let progress = xai_grok_i18n::t_fmt(
+        "{n}/{total} explored",
+        &[
+            ("n", &st.viewed.len().to_string()),
+            ("total", &TUTORIAL_TOPICS.len().to_string()),
+        ],
+    );
+    let nav_hint = xai_grok_i18n::t("\u{2191}/\u{2193} navigate");
+    let enter_hint = xai_grok_i18n::t("Enter open");
+    let esc_hint = xai_grok_i18n::t("Esc done");
     let shortcuts = [
         Shortcut {
             label: &progress,
@@ -392,23 +413,24 @@ fn render_list(buf: &mut Buffer, area: Rect, st: &mut TutorialState, compact: bo
             id: 0,
         },
         Shortcut {
-            label: "\u{2191}/\u{2193} navigate",
+            label: nav_hint.as_ref(),
             clickable: false,
             id: 0,
         },
         Shortcut {
-            label: "Enter open",
+            label: enter_hint.as_ref(),
             clickable: false,
             id: 0,
         },
         Shortcut {
-            label: "Esc done",
+            label: esc_hint.as_ref(),
             clickable: false,
             id: 0,
         },
     ];
+    let tutorial_title = xai_grok_i18n::t("Welcome to Grok Build");
     let modal_config = ModalWindowConfig {
-        title: "Welcome to Grok Build",
+        title: tutorial_title.as_ref(),
         tabs: None,
         shortcuts: &shortcuts,
         sizing: ModalSizing {
@@ -429,12 +451,13 @@ fn render_list(buf: &mut Buffer, area: Rect, st: &mut TutorialState, compact: bo
 
     // Intro copy, then a blank row, then the topic rows.
     let intro_style = Style::default().fg(theme.gray_bright);
+    let intro_owned: Vec<_> = INTRO_LINES.iter().map(|line| xai_grok_i18n::t(line)).collect();
     let mut y = mca.content.y;
-    for line in INTRO_LINES {
+    for line in &intro_owned {
         if y >= mca.content.y + mca.content.height {
             break;
         }
-        Paragraph::new(Line::styled(line, intro_style)).render(
+        Paragraph::new(Line::styled(line.as_ref(), intro_style)).render(
             Rect {
                 x: mca.content.x,
                 y,
@@ -460,16 +483,24 @@ fn render_list(buf: &mut Buffer, area: Rect, st: &mut TutorialState, compact: bo
     // Narrow modals can't fit title and blurb on one row; stack the blurb below
     const NARROW_THRESHOLD: u16 = 64;
     let narrow = entries_area.width < NARROW_THRESHOLD;
-    let blurb_slices: Vec<[&str; 1]> = TUTORIAL_TOPICS.iter().map(|t| [t.blurb]).collect();
+    let titles: Vec<_> = TUTORIAL_TOPICS
+        .iter()
+        .map(|t| xai_grok_i18n::t(t.title))
+        .collect();
+    let blurbs: Vec<_> = TUTORIAL_TOPICS
+        .iter()
+        .map(|t| xai_grok_i18n::t(t.blurb))
+        .collect();
+    let blurb_slices: Vec<[&str; 1]> = blurbs.iter().map(|b| [b.as_ref()]).collect();
 
     let picker_entries: Vec<PickerEntry<'_>> = TUTORIAL_TOPICS
         .iter()
         .enumerate()
-        .map(|(i, t)| {
+        .map(|(i, _t)| {
             let viewed = st.viewed.contains(&i);
             PickerEntry::Row(PickerRow {
-                label: t.title,
-                right_label: if narrow { "" } else { t.blurb },
+                label: titles[i].as_ref(),
+                right_label: if narrow { "" } else { blurbs[i].as_ref() },
                 selected: i == st.picker.selected,
                 expanded: narrow,
                 fields: &[],

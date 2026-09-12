@@ -19,7 +19,11 @@ impl AgentView {
     /// Displayed for ~3 seconds (90 ticks at 30fps).
     /// A previous transient toast is replaced; [`Self::sticky_toast`] is preserved and returns after this expires or is dismissed.
     pub fn show_toast(&mut self, msg: &str) {
-        self.toast = Some((crate::glyphs::sanitize_toast_message(msg).into_owned(), 90));
+        let msg = xai_grok_i18n::t(msg);
+        self.toast = Some((
+            crate::glyphs::sanitize_toast_message(msg.as_ref()).into_owned(),
+            90,
+        ));
     }
 
     /// Show an ephemeral tip in the banner row above the prompt, gated by the app-level per-session `seen_counts` map (`AppView::tip_seen_counts`).
@@ -198,8 +202,9 @@ impl AgentView {
 
     /// Show a toast with an explicit tick duration.
     pub fn show_toast_ticks(&mut self, msg: &str, ticks: u8) {
+        let msg = xai_grok_i18n::t(msg);
         self.toast = Some((
-            crate::glyphs::sanitize_toast_message(msg).into_owned(),
+            crate::glyphs::sanitize_toast_message(msg.as_ref()).into_owned(),
             ticks,
         ));
     }

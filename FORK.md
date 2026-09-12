@@ -51,7 +51,7 @@ User-visible shortcut-bar labels, cheatsheet section headers, and action descrip
 
 Unset / `en` keeps English (tests stay stable). Missing keys fall back to English. Model prompts and tool protocol strings are **not** in the catalog.
 
-Files: `crates/codegen/xai-grok-i18n/`, `locales/zh-CN.toml`. Call sites: shortcuts bar paint, shortcuts cheatsheet display/search, command-palette title/rows/footer (English labels stay in `default_palette_entries()`).
+Files: `crates/codegen/xai-grok-i18n/`, `locales/zh-CN.toml`. Call sites: shortcuts bar paint, shortcuts cheatsheet display/search, command-palette title/rows/footer (English labels stay in `default_palette_entries()`), privacy banner, welcome menu / directory trust / consent chrome, login copy, settings modal labels/descriptions/categories (paint only; `settings/defs.rs` untouched), slash-dropdown descriptions (not `/home` names), remaining modal titles, extensions tabs, composer placeholders, `Tip:` prefix, toasts, permission-dialog titles/buttons, and how-to / tutorial pages (Chinese markdown picked by language; English doc tree unchanged).
 
 ## Versioning
 
