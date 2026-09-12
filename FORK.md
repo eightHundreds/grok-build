@@ -1,0 +1,57 @@
+# Fork changes
+
+This repository is a personal fork of [xai-org/grok-build](https://github.com/xai-org/grok-build). Upstream syncs land as `Synced from monorepo`. Everything below is a change made **after** the fork, relative to that snapshot.
+
+Functional changes first; packaging / distribution after.
+
+## Functional
+
+### Configurable session titles
+
+Upstream hardcodes auto-title refresh at real-user turns **3** and **6**, and bakes in both title prompts. This fork reads them from `[session]` in `config.toml`.
+
+| Key | Type | When unset | Notes |
+| --- | --- | --- | --- |
+| `session.title_refresh_turns` | `integer[]` | `[3, 6]` | Turns that regenerate the title from the whole conversation, then freeze. Zeros are dropped; the rest are sorted and deduped. An **empty** list means: title once after the first prompt, never refresh. |
+| `session.title_prompt` | `string` | built-in prompt | Used for the first-prompt title **and** later whole-conversation refreshes. Blank / whitespace is treated as unset. |
+
+Still unchanged from upstream:
+
+- A title is generated right after the first user prompt.
+- Manual `/rename` always wins; automatic generation will not overwrite it.
+- `/rename --auto` hands the title back to automatic generation.
+- Remote kill-switch `features.title_refresh` still applies.
+
+Example (`~/.grok/config.toml`):
+
+```toml
+[session]
+title_refresh_turns = [2, 5, 10]
+title_prompt = "Name this coding session in 5-10 dense words. Output only the title."
+```
+
+Disable later refreshes (keep only the first auto title):
+
+```toml
+[session]
+title_refresh_turns = []
+```
+
+Details: [config reference](crates/codegen/xai-grok-pager/docs/user-guide/26-config-reference.md), [sessions](crates/codegen/xai-grok-pager/docs/user-guide/17-sessions.md).  
+Landed in [#1](https://github.com/eightHundreds/grok-build/pull/1).
+
+## Distribution (not product behavior)
+
+These do not change the TUI/agent loop. They keep this fork off the official `x.ai/cli` / GCS channel.
+
+- Installers and the compiled auto-updater fetch **this** repo’s GitHub Releases (`eightHundreds/grok-build`), never official CDN URLs.
+- `.github/workflows/release.yml` builds `xai-grok-pager` on every push and publishes from `main` / `v*` / `workflow_dispatch`.
+- Release binaries use the official **packaging** path: `--profile release-dist` (thin LTO + `codegen-units=1`), extract a debug sidecar, then `strip` the file users download. Debug files stay in Actions artifacts (14 days), not the GitHub Release. Linux/macOS stay on the GNU/Apple targets in `rust-toolchain.toml` (not official musl).
+
+Landed in [#2](https://github.com/eightHundreds/grok-build/pull/2); slimming is on top of that workflow.
+
+## What this fork does not change
+
+- Model routing, tools, sandbox, MCP, and the rest of the agent runtime stay upstream behavior.
+- Official changelog: [x.ai/build/changelog](https://x.ai/build/changelog).
+- `SOURCE_REV` is still the monorepo commit this tree was synced from.

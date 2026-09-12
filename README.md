@@ -45,6 +45,8 @@ GitHub Releases (built by [`.github/workflows/release.yml`](.github/workflows/re
 not the official `x.ai/cli` / `@xai-official/grok` binaries. After install,
 CLI auto-update stays on this fork's release channel.
 
+Functional and packaging deltas vs upstream are listed in [`FORK.md`](FORK.md).
+
 ```sh
 # macOS / Linux / Git Bash — latest CI/release of this repo
 curl -fsSL https://github.com/eightHundreds/grok-build/releases/latest/download/install.sh | bash

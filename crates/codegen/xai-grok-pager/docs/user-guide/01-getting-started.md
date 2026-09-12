@@ -9,6 +9,7 @@ You can use it interactively as a full-screen TUI, run it headlessly for scripti
 ## Installation
 
 This fork installs **this repository's** GitHub Releases, not official `x.ai/cli`.
+Fork-specific behavior is documented in the repository-root [`FORK.md`](https://github.com/eightHundreds/grok-build/blob/main/FORK.md).
 
 ```bash
 curl -fsSL https://github.com/eightHundreds/grok-build/releases/latest/download/install.sh | bash

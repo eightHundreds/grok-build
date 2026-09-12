@@ -1,6 +1,10 @@
 # Build a versioned artifact of THIS customized Grok Build on every push.
 # Releases (install/auto-update channel) are published from main, v* tags,
 # or workflow_dispatch — never from official x.ai/cli or GCS.
+#
+# Packaging follows the official ship comments in the root Cargo.toml:
+# `cargo build --profile release-dist`, extract a debug sidecar, then strip
+# the uploaded binary. Debug sidecars stay in Actions artifacts only.
 name: Custom fork release
 
 on:
@@ -95,7 +99,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: grok-pager-bin-release-${{ matrix.platform }}
+          shared-key: grok-pager-bin-release-dist-${{ matrix.platform }}
 
       - name: Install DotSlash
         run: cargo install dotslash --locked
@@ -105,10 +109,14 @@ jobs:
           command -v dotslash
           ./bin/protoc --version
 
+      # Official ship profile: thin LTO + codegen-units=1, symbols kept so
+      # the next step can extract a debug sidecar and strip the uploaded binary.
+      # Not musl — this public tree's rust-toolchain only lists GNU targets.
       - name: Build release CLI
         env:
           GROK_VERSION: ${{ needs.version.outputs.version }}
-        run: cargo build --release -p xai-grok-pager-bin
+          CARGO_INCREMENTAL: "0"
+        run: cargo build --profile release-dist -p xai-grok-pager-bin
 
       - name: Package versioned artifact
         env:
@@ -117,12 +125,26 @@ jobs:
           EXE: ${{ matrix.exe }}
         run: |
           set -euo pipefail
-          src="target/release/${EXE}"
+          src="target/release-dist/${EXE}"
           test -f "$src"
-          mkdir -p dist
+          mkdir -p dist debug
           dest="dist/grok-${VERSION}-${PLATFORM}"
           cp "$src" "$dest"
           chmod +x "$dest"
+
+          # Match official post-process: sidecar first, then strip what users download.
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            dbg="grok-${VERSION}-${PLATFORM}.debug"
+            objcopy --only-keep-debug "$dest" "debug/${dbg}"
+            chmod a-x "debug/${dbg}" || true
+            strip --strip-unneeded "$dest"
+            (cd debug && objcopy --add-gnu-debuglink="${dbg}" "../${dest}")
+          elif [ "${RUNNER_OS}" = "macOS" ]; then
+            dsymutil "$dest" -o "debug/grok-${VERSION}-${PLATFORM}.dSYM"
+            strip "$dest"
+          fi
+
+          ls -lh "$dest"
           if command -v zstd >/dev/null 2>&1; then
             zstd -q -19 -o "${dest}.zst" "$dest"
           elif command -v gzip >/dev/null 2>&1; then
@@ -130,12 +152,20 @@ jobs:
           fi
           (cd dist && shasum -a 256 "grok-${VERSION}-${PLATFORM}"* > "SHA256SUMS-${PLATFORM}")
           ls -lh dist
+          ls -lh debug || true
 
       - uses: actions/upload-artifact@v4
         with:
-          name: grok-${{ needs.version.outputs.version }}-${{ matrix.platform }}
+          name: dist-${{ matrix.platform }}
           path: dist/*
           if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: debug-${{ matrix.platform }}
+          path: debug/
+          if-no-files-found: warn
+          retention-days: 14
 
   publish:
     needs: [version, build]
@@ -146,6 +176,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          pattern: dist-*
           merge-multiple: true
           path: dist
 
@@ -171,6 +202,7 @@ jobs:
           body: |
             Custom-fork build of this repository (`eightHundreds/grok-build`).
             Install and auto-update use **this** release channel, not official `x.ai/cli`.
+            Binaries are `release-dist` + stripped (official packaging path; GNU target, not musl).
 
             ```sh
             curl -fsSL https://github.com/eightHundreds/grok-build/releases/latest/download/install.sh | bash
