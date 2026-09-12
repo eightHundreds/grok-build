@@ -570,6 +570,31 @@ fn install_scripts_allow_custom_https_proxy_url() {
     }
 }
 
+#[test]
+fn install_scripts_download_this_fork_not_official_cdn() {
+    for script in INSTALL_SCRIPTS {
+        let Some(urls) = install_urls_on_fake_host(script, FakeHost::IntelMac) else {
+            eprintln!("skipping: {script} not found relative to crate; run under cargo");
+            return;
+        };
+        assert!(
+            urls.contains("eightHundreds/grok-build"),
+            "{script}: must fetch this fork's GitHub Releases, urls:\n{urls}"
+        );
+        assert!(
+            !urls.contains("x.ai/cli")
+                && !urls.contains("googleapis.com")
+                && !urls.contains("grok-build-public-artifacts")
+                && !urls.contains("xai-org-shared"),
+            "{script}: must not request official CDN/repo, urls:\n{urls}"
+        );
+        assert!(
+            urls.contains("/releases/download/v0.1.181/grok-0.1.181-"),
+            "{script}: pinned version must use the versioned GitHub tag URL, urls:\n{urls}"
+        );
+    }
+}
+
 /// A Rosetta shell (uname says macos/x86_64, sysctl says Apple Silicon) must download the native arm64 artifact.
 /// A genuine Intel Mac (sysctl key missing) must keep x86_64.
 /// Both installer scripts carry the probe.
