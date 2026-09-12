@@ -40,16 +40,25 @@ for the version of the code present in this tree.
 
 ## Installing the released binary
 
-Prebuilt binaries are published for macOS, Linux, and Windows:
+This is a **custom fork**. The commands below install **this repository's**
+GitHub Releases (built by [`.github/workflows/release.yml`](.github/workflows/release.yml)),
+not the official `x.ai/cli` / `@xai-official/grok` binaries. After install,
+CLI auto-update stays on this fork's release channel.
 
 ```sh
-curl -fsSL https://x.ai/cli/install.sh | bash   # macOS / Linux / Git Bash
-irm https://x.ai/cli/install.ps1 | iex          # Windows PowerShell
+# macOS / Linux / Git Bash — latest CI/release of this repo
+curl -fsSL https://github.com/eightHundreds/grok-build/releases/latest/download/install.sh | bash
+
+# or the in-tree script (same installer; useful before the first release exists)
+curl -fsSL https://raw.githubusercontent.com/eightHundreds/grok-build/main/crates/codegen/xai-grok-pager/scripts/install.sh | bash
+
+irm https://github.com/eightHundreds/grok-build/releases/latest/download/install.ps1 | iex   # Windows PowerShell
 grok --version
 ```
 
-See the [changelog](https://x.ai/build/changelog) for the latest fixes,
-features, and improvements in each release.
+Pin a version with `bash -s X.Y.Z` (Unix) or `$env:GROK_VERSION="X.Y.Z"` (PowerShell).
+
+See the [changelog](https://x.ai/build/changelog) for upstream release notes.
 
 ## Building from source
 

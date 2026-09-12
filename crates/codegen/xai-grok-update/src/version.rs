@@ -11,18 +11,50 @@ use xai_grok_shell::util::grok_home::grok_home;
 
 const TTL_SECONDS_BEFORE_AUTO_UPDATE: Duration = Duration::from_secs(60 * 30);
 const NPM_PACKAGE: &str = "@xai-official/grok";
-pub const GH_RELEASE_REPO: &str = "xai-org-shared/grok-build";
 
-/// Primary CLI base URL: Cloudflare-fronted x.ai endpoint with edge caching for binaries and origin-respecting no-cache for channel pointers.
-pub(crate) const CLI_BASE_URL_PRIMARY: &str = "https://x.ai/cli";
+/// GitHub owner/repo that publishes this fork's versioned CLI artifacts.
+/// Keep in sync with the install scripts and `.github/workflows/release.yml`.
+pub const GH_RELEASE_REPO: &str = "eightHundreds/grok-build";
 
-/// Fallback CLI base URL: direct GCS, used when the primary is unreachable (Cloudflare outage, regional CF egress issue, DNS hijack, etc.).
-pub(crate) const CLI_BASE_URL_FALLBACK: &str =
-    "https://storage.googleapis.com/grok-build-public-artifacts/cli";
+/// Latest-release download prefix for this fork.
+/// Channel pointers (`stable`, `alpha`, `enterprise`) are release assets.
+/// Versioned binaries are rewritten to `/releases/download/v{version}/…` by [`cli_artifact_url`].
+/// Official `x.ai/cli` and GCS are intentionally not listed — this CLI must not pull them.
+/// There is no second origin: a GCS/x.ai fallback would reintroduce official binaries.
+pub(crate) const CLI_BASE_URL_PRIMARY: &str =
+    "https://github.com/eightHundreds/grok-build/releases/latest/download";
 
 /// CLI base URLs in preference order.
 /// Callers (channel-pointer fetch, binary download, in-app updater) try each in turn and stop at the first success.
-pub(crate) const CLI_BASE_URLS: &[&str] = &[CLI_BASE_URL_PRIMARY, CLI_BASE_URL_FALLBACK];
+pub(crate) const CLI_BASE_URLS: &[&str] = &[CLI_BASE_URL_PRIMARY];
+
+/// Published bootstrap installers (same files CI attaches to each GitHub Release).
+pub const FORK_INSTALL_SH_URL: &str =
+    "https://github.com/eightHundreds/grok-build/releases/latest/download/install.sh";
+pub const FORK_INSTALL_PS1_URL: &str =
+    "https://github.com/eightHundreds/grok-build/releases/latest/download/install.ps1";
+pub const FORK_ENTERPRISE_INSTALL_SH_URL: &str =
+    "https://github.com/eightHundreds/grok-build/releases/latest/download/enterprise-install.sh";
+pub const FORK_ENTERPRISE_INSTALL_PS1_URL: &str =
+    "https://github.com/eightHundreds/grok-build/releases/latest/download/enterprise-install.ps1";
+
+/// Download URL for a CLI object. Official layout is `{base}/{name}`.
+/// This fork's `…/releases/latest/download` base is rewritten to the versioned
+/// tag so a pinned install does not 404 on `latest`.
+pub(crate) fn cli_artifact_url(base: &str, name: &str) -> String {
+    let base = base.trim_end_matches('/');
+    if let Some(repo_root) = base.strip_suffix("/releases/latest/download") {
+        let stem = name
+            .strip_suffix(".zst")
+            .or_else(|| name.strip_suffix(".gz"))
+            .unwrap_or(name);
+        let stem = stem.strip_suffix(".exe").unwrap_or(stem);
+        if let Some(ver) = version_from_versioned_binary_name(stem, "grok") {
+            return format!("{repo_root}/releases/download/v{ver}/{name}");
+        }
+    }
+    format!("{base}/{name}")
+}
 
 /// [`CLI_BASE_URLS`], unless tests set `GROK_CLI_BASE_URL` to point fetches and downloads at one base (as they set `GROK_INSTALLER`).
 /// Loopback-only: downloads are verified by a smoke test, not a checksum, so redirecting to an arbitrary base could serve a hijacked install.
@@ -525,6 +557,51 @@ pub fn channel_label() -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn fork_cli_bases_never_point_at_official() {
+        use super::{CLI_BASE_URL_PRIMARY, CLI_BASE_URLS, GH_RELEASE_REPO, cli_artifact_url};
+        assert_eq!(GH_RELEASE_REPO, "eightHundreds/grok-build");
+        for base in CLI_BASE_URLS
+            .iter()
+            .copied()
+            .chain(std::iter::once(CLI_BASE_URL_PRIMARY))
+        {
+            assert!(
+                !base.contains("x.ai"),
+                "official x.ai host must not be a CLI base: {base}"
+            );
+            assert!(
+                !base.contains("googleapis.com"),
+                "official GCS must not be a CLI base: {base}"
+            );
+            assert!(
+                !base.contains("xai-org-shared"),
+                "official gh-release repo must not be a CLI base: {base}"
+            );
+            assert!(
+                base.contains("eightHundreds/grok-build"),
+                "CLI base must be this fork: {base}"
+            );
+        }
+        let latest = "https://github.com/eightHundreds/grok-build/releases/latest/download";
+        assert_eq!(
+            cli_artifact_url(latest, "grok-1.0.24-linux-x86_64"),
+            "https://github.com/eightHundreds/grok-build/releases/download/v1.0.24/grok-1.0.24-linux-x86_64"
+        );
+        assert_eq!(
+            cli_artifact_url(latest, "grok-1.0.24-linux-x86_64.zst"),
+            "https://github.com/eightHundreds/grok-build/releases/download/v1.0.24/grok-1.0.24-linux-x86_64.zst"
+        );
+        assert_eq!(
+            cli_artifact_url(latest, "grok-1.0.24-windows-x86_64.exe"),
+            "https://github.com/eightHundreds/grok-build/releases/download/v1.0.24/grok-1.0.24-windows-x86_64.exe"
+        );
+        assert_eq!(
+            cli_artifact_url("http://127.0.0.1:8971", "grok-1.0.24-linux-x86_64"),
+            "http://127.0.0.1:8971/grok-1.0.24-linux-x86_64"
+        );
+    }
+
     #[test]
     fn loopback_base_rejects_userinfo_and_non_loopback() {
         use super::is_loopback_base;

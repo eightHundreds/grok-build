@@ -1,14 +1,15 @@
 #!/bin/bash
 #
-# Grok CLI installer — https://x.ai/cli/install.sh
+# Grok CLI installer for the eightHundreds/grok-build fork.
+# Downloads THIS repository's GitHub Releases — never official x.ai/cli or GCS.
 #
 # Auth: GROK_DEPLOYMENT_KEY (takes precedence) or ~/.grok/auth.json from `grok login`.
-# Env: GROK_CHANNEL (stable|alpha|enterprise, default: stable), GROK_BIN_DIR, GROK_PROXY_URL
+# Env: GROK_CHANNEL (stable|alpha|enterprise, default: stable), GROK_BIN_DIR, GROK_PROXY_URL,
+#      GROK_GH_RELEASE_REPO (default: eightHundreds/grok-build)
 #
 # Usage:
-#   curl -fsSL https://x.ai/cli/install.sh | bash            # latest stable
-#   curl -fsSL https://x.ai/cli/install.sh | bash -s 0.1.42  # specific version
-#   GROK_DEPLOYMENT_KEY=<key> bash <(curl -fsSL https://x.ai/cli/install.sh)
+#   curl -fsSL https://github.com/eightHundreds/grok-build/releases/latest/download/install.sh | bash
+#   curl -fsSL …/install.sh | bash -s 0.1.42
 #
 # Windows: run under Git for Windows / MSYS2 Bash (same curl | bash flow); WSL
 # uses the Linux binary.
@@ -197,8 +198,15 @@ if [ "$os" = "macos" ] && [ "$arch" = "x86_64" ]; then
     fi
 fi
 
-BASE_URL_PRIMARY="https://x.ai/cli"
-BASE_URL_FALLBACK="https://storage.googleapis.com/grok-build-public-artifacts/cli"
+GH_RELEASE_REPO="${GROK_GH_RELEASE_REPO:-eightHundreds/grok-build}"
+if [[ ! "$GH_RELEASE_REPO" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
+    echo "Invalid GROK_GH_RELEASE_REPO: '${GH_RELEASE_REPO}' (expected owner/repo)" >&2
+    exit 1
+fi
+# Channel pointers (`stable` / `alpha` / `enterprise`) are assets on the latest
+# GitHub Release. Official x.ai/cli and GCS are not used and must not be added.
+BASE_URL_PRIMARY="https://github.com/${GH_RELEASE_REPO}/releases/latest/download"
+BASE_URL_FALLBACK="$BASE_URL_PRIMARY"
 DOWNLOAD_DIR="$HOME/.grok/downloads"
 BIN_DIR="${GROK_BIN_DIR:-$HOME/.grok/bin}"
 mkdir -p "$DOWNLOAD_DIR" "$BIN_DIR"
@@ -213,18 +221,20 @@ case "$CHANNEL" in
         ;;
 esac
 
-# Pick a working BASE_URL: try Cloudflare-fronted x.ai first, fall back to
-# direct GCS if it's unreachable. The probe doubles as the channel-pointer
-# fetch when no explicit TARGET was passed, so the happy path costs zero
-# extra HTTP requests.
+# Probe the fork channel pointer (also the version fetch when TARGET is unset).
+# There is no official-CDN fallback.
 if [ -z "$TARGET" ]; then echo "Fetching latest ${CHANNEL} version..." >&2; fi
 probe_result=$(download_file "${BASE_URL_PRIMARY}/${CHANNEL}" 2>/dev/null) || true
 if [ -n "$probe_result" ]; then
     BASE_URL="$BASE_URL_PRIMARY"
 else
-    echo "Note: ${BASE_URL_PRIMARY} unreachable, falling back to direct GCS." >&2
+    echo "Note: ${BASE_URL_PRIMARY} unreachable, trying GitHub Releases API." >&2
     BASE_URL="$BASE_URL_FALLBACK"
     probe_result=$(download_file "${BASE_URL}/${CHANNEL}" 2>/dev/null) || true
+    if [ -z "$probe_result" ]; then
+        api_json=$(download_file "https://api.github.com/repos/${GH_RELEASE_REPO}/releases/latest" 2>/dev/null) || true
+        probe_result=$(printf '%s' "$api_json" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\?\([^"]*\)".*/\1/p' | head -1)
+    fi
 fi
 
 if [ -n "$TARGET" ]; then
@@ -232,7 +242,7 @@ if [ -n "$TARGET" ]; then
 else
     version=$(printf '%s' "$probe_result" | tr -d '\r' | head -n1 | tr -d '[:space:]')
     if [ -z "$version" ]; then
-        echo "Error: failed to fetch latest version from ${BASE_URL_PRIMARY}/${CHANNEL} and ${BASE_URL_FALLBACK}/${CHANNEL}" >&2
+        echo "Error: failed to fetch latest version from ${BASE_URL_PRIMARY}/${CHANNEL} and https://api.github.com/repos/${GH_RELEASE_REPO}/releases/latest" >&2
         exit 1
     fi
 fi
@@ -249,7 +259,8 @@ else
 fi
 
 binary_path="$DOWNLOAD_DIR/grok-$platform"
-artifact_base="${BASE_URL}/grok-${version}-${platform}"
+# Versioned tag URL so a pinned install does not 404 on /releases/latest/download.
+artifact_base="https://github.com/${GH_RELEASE_REPO}/releases/download/v${version}/grok-${version}-${platform}"
 
 if [ "$os" = "windows" ]; then
     binary_path="${binary_path}.exe"

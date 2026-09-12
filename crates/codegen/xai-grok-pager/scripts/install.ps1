@@ -1,14 +1,14 @@
 #
-# Grok CLI installer for PowerShell — https://x.ai/cli/install.ps1
+# Grok CLI installer for PowerShell — eightHundreds/grok-build fork.
+# Downloads THIS repository's GitHub Releases — never official x.ai/cli or GCS.
 #
 # Auth: GROK_DEPLOYMENT_KEY env var (takes precedence) or ~/.grok/auth.json from `grok login`.
-# Env: GROK_CHANNEL (stable|alpha|enterprise, default: stable), GROK_BIN_DIR, GROK_PROXY_URL
+# Env: GROK_CHANNEL (stable|alpha|enterprise, default: stable), GROK_BIN_DIR, GROK_PROXY_URL,
+#      GROK_GH_RELEASE_REPO (default: eightHundreds/grok-build)
 #
 # Usage:
-#   irm https://x.ai/cli/install.ps1 | iex                                       # latest stable
-#   & ([scriptblock]::Create((irm https://x.ai/cli/install.ps1))) -Version 0.1.42 # specific version
-#   $env:GROK_VERSION="0.1.42"; irm https://x.ai/cli/install.ps1 | iex           # specific version (alt)
-#   $env:GROK_DEPLOYMENT_KEY="<key>"; irm https://x.ai/cli/install.ps1 | iex
+#   irm https://github.com/eightHundreds/grok-build/releases/latest/download/install.ps1 | iex
+#   $env:GROK_VERSION="0.1.42"; irm …/install.ps1 | iex
 #
 
 param(
@@ -31,7 +31,7 @@ if (-not $Version -and $env:GROK_VERSION) {
 
 # This script is Windows-only. PS 5.1 has no Platform property and only runs on Windows.
 if ($PSVersionTable.Platform -and $PSVersionTable.Platform -ne 'Win32NT') {
-    Write-Error "This installer is for Windows. On macOS/Linux, use: curl -fsSL https://x.ai/cli/install.sh | bash"
+    Write-Error "This installer is for Windows. On macOS/Linux, use: curl -fsSL https://github.com/eightHundreds/grok-build/releases/latest/download/install.sh | bash"
     exit 1
 }
 
@@ -147,8 +147,13 @@ $platform = "windows-$arch"
 
 # --- Resolve version and channel ---
 
-$BaseUrlPrimary = 'https://x.ai/cli'
-$BaseUrlFallback = 'https://storage.googleapis.com/grok-build-public-artifacts/cli'
+$GhReleaseRepo = if ($env:GROK_GH_RELEASE_REPO) { $env:GROK_GH_RELEASE_REPO } else { 'eightHundreds/grok-build' }
+if ($GhReleaseRepo -notmatch '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$') {
+    Write-Error "Invalid GROK_GH_RELEASE_REPO: '$GhReleaseRepo' (expected owner/repo)"
+    exit 1
+}
+$BaseUrlPrimary = "https://github.com/$GhReleaseRepo/releases/latest/download"
+$BaseUrlFallback = $BaseUrlPrimary
 $DownloadDir = Join-Path $GrokDir 'downloads'
 $BinDir = if ($env:GROK_BIN_DIR) { $env:GROK_BIN_DIR } else { Join-Path $GrokDir 'bin' }
 
@@ -161,17 +166,21 @@ if ($Channel -cnotmatch '^(stable|alpha|enterprise)$') {
     exit 1
 }
 
-# Pick a working BaseUrl: try Cloudflare-fronted x.ai first, fall back to
-# direct GCS if it's unreachable. The probe doubles as the channel-pointer
-# fetch when no -Version was passed, so the happy path costs zero extra requests.
+# Probe this fork's channel pointer. Official x.ai/cli and GCS are not used.
 if (-not $Version) { Write-Host "Fetching latest $Channel version..." -ForegroundColor DarkGray }
 $probeResult = Download-String "$BaseUrlPrimary/$Channel"
 if ($probeResult) {
     $BaseUrl = $BaseUrlPrimary
 } else {
-    Write-Host "Note: $BaseUrlPrimary unreachable, falling back to direct GCS." -ForegroundColor Yellow
+    Write-Host "Note: $BaseUrlPrimary unreachable, trying GitHub Releases API." -ForegroundColor Yellow
     $BaseUrl = $BaseUrlFallback
     $probeResult = Download-String "$BaseUrl/$Channel"
+    if (-not $probeResult) {
+        $apiJson = Download-String "https://api.github.com/repos/$GhReleaseRepo/releases/latest"
+        if ($apiJson -match '"tag_name"\s*:\s*"v?([^"]+)"') {
+            $probeResult = $Matches[1]
+        }
+    }
 }
 
 if ($Version) {
@@ -179,7 +188,7 @@ if ($Version) {
 } elseif ($probeResult) {
     $resolvedVersion = $probeResult.Trim()
 } else {
-    Write-Error "Failed to fetch latest version from $BaseUrlPrimary/$Channel and $BaseUrlFallback/$Channel"
+    Write-Error "Failed to fetch latest version from $BaseUrlPrimary/$Channel and https://api.github.com/repos/$GhReleaseRepo/releases/latest"
     exit 1
 }
 
@@ -192,7 +201,7 @@ if ($AuthSource) {
 # --- Download binary ---
 
 $binaryPath = Join-Path $DownloadDir "grok-$platform.exe"
-$artifactBase = "$BaseUrl/grok-$resolvedVersion-$platform"
+$artifactBase = "https://github.com/$GhReleaseRepo/releases/download/v$resolvedVersion/grok-$resolvedVersion-$platform"
 
 $downloaded = $false
 foreach ($url in @("$artifactBase.exe", $artifactBase)) {

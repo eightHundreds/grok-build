@@ -917,12 +917,19 @@ async fn test_cleanup_old_downloads_mixed_stable_and_alpha() {
 // ──────────────────────────────────────────────────────────────────────
 
 #[test]
-fn test_reinstall_hint_npm_mentions_npm_command() {
+fn test_reinstall_hint_npm_mentions_fork_installer() {
     let hint = reinstall_hint("npm", "stable");
-    assert!(hint.contains("npm i -g"), "should suggest npm i -g: {hint}");
     assert!(
-        hint.contains("@xai-official/grok"),
-        "should name the package: {hint}"
+        hint.contains("install.sh"),
+        "fork must not send operators to official npm: {hint}"
+    );
+    assert!(
+        hint.contains("eightHundreds/grok-build"),
+        "should name this fork: {hint}"
+    );
+    assert!(
+        !hint.contains("npm i -g"),
+        "must not recommend official npm install: {hint}"
     );
 }
 
@@ -934,8 +941,8 @@ fn test_reinstall_hint_gh_release_mentions_gh_command() {
         "should suggest gh release download: {hint}"
     );
     assert!(
-        hint.contains("xai-org-shared/grok-build"),
-        "should name the repo: {hint}"
+        hint.contains("eightHundreds/grok-build"),
+        "should name this fork's repo: {hint}"
     );
 }
 

@@ -49,29 +49,48 @@ fn manual_install_cmd(channel: &str) -> String {
     if channel == "enterprise" {
         // Enterprise has its own bootstrap script; it needs no channel env.
         return if cfg!(windows) {
-            "irm https://x.ai/cli/enterprise-install.ps1 | iex".to_string()
+            format!(
+                "irm {} | iex",
+                crate::version::FORK_ENTERPRISE_INSTALL_PS1_URL
+            )
         } else {
-            "curl -fsSL https://x.ai/cli/enterprise-install.sh | bash".to_string()
+            format!(
+                "curl -fsSL {} | bash",
+                crate::version::FORK_ENTERPRISE_INSTALL_SH_URL
+            )
         };
     }
     if is_stable_channel(channel) || !safe {
         return if cfg!(windows) {
-            "irm https://x.ai/cli/install.ps1 | iex".to_string()
+            format!("irm {} | iex", crate::version::FORK_INSTALL_PS1_URL)
         } else {
-            "curl -fsSL https://x.ai/cli/install.sh | bash".to_string()
+            format!("curl -fsSL {} | bash", crate::version::FORK_INSTALL_SH_URL)
         };
     }
     if cfg!(windows) {
-        format!("$env:GROK_CHANNEL='{channel}'; irm https://x.ai/cli/install.ps1 | iex")
+        format!(
+            "$env:GROK_CHANNEL='{channel}'; irm {} | iex",
+            crate::version::FORK_INSTALL_PS1_URL
+        )
     } else {
-        format!("curl -fsSL https://x.ai/cli/install.sh | GROK_CHANNEL='{channel}' bash")
+        format!(
+            "curl -fsSL {} | GROK_CHANNEL='{channel}' bash",
+            crate::version::FORK_INSTALL_SH_URL
+        )
     }
 }
 
 fn reinstall_hint(installer: &str, channel: &str) -> String {
     match installer {
-        "npm" => "Please reinstall via npm:\n  npm i -g @xai-official/grok".to_string(),
-        "gh-release" => "Please reinstall via GitHub Releases:\n  gh release download --repo xai-org-shared/grok-build --pattern 'grok-*' --output grok && chmod +x grok".to_string(),
+        // This fork does not publish npm; point operators at the GitHub channel.
+        "npm" => format!(
+            "Please reinstall via this fork's GitHub Releases (npm would pull official @xai-official/grok):\n  curl -fsSL {} | bash",
+            crate::version::FORK_INSTALL_SH_URL
+        ),
+        "gh-release" => format!(
+            "Please reinstall via GitHub Releases:\n  gh release download --repo {} --pattern 'grok-*' --output grok && chmod +x grok",
+            crate::version::GH_RELEASE_REPO
+        ),
         _ => format!("Please reinstall via:\n  {}", manual_install_cmd(channel)),
     }
 }
@@ -1344,13 +1363,19 @@ async fn download_cli_artifact_from_gcs(
     let mut last_err = None;
     for name in &names {
         for (suffix, codec) in [("zst", Codec::Zstd), ("gz", Codec::Gzip)] {
-            let url = format!("{base}/{name}.{suffix}");
+            let url = crate::version::cli_artifact_url(base, &format!("{name}.{suffix}"));
             match download_and_decode(&url, dest, codec, with_progress).await {
                 Ok(()) => return Ok(()),
                 Err(e) => tracing::debug!("compressed {name}.{suffix} unusable, trying next: {e}"),
             }
         }
-        match download_plain(&format!("{base}/{name}"), dest, with_progress).await {
+        match download_plain(
+            &crate::version::cli_artifact_url(base, name),
+            dest,
+            with_progress,
+        )
+        .await
+        {
             Ok(()) => return Ok(()),
             Err(e) => last_err = Some(e),
         }
@@ -2275,9 +2300,9 @@ async fn gh_release_download(tag: &str, pattern: &str, dest: &std::path::Path) -
     Ok(())
 }
 
-/// Download and install grok from GitHub Releases (xai-org-shared/grok-build). Uses `gh release download` to fetch the
+/// Download and install grok from this fork's GitHub Releases (`eightHundreds/grok-build`). Uses `gh release download` to fetch the
 /// binary matching the current platform. This works anywhere the `gh` CLI is authenticated, without needing npm or
-/// internal network access.
+/// official x.ai/cli access.
 async fn install_gh_release(target: Option<&str>) -> Result<()> {
     let (os, arch) = detect_platform()?;
     let platform = format!("{}-{}", os, arch);
