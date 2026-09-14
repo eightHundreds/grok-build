@@ -423,9 +423,9 @@ mod tests {
         state.finish_running(think_id);
         state.note_pin_reserve_turn_finished();
         state.push_block(RenderBlock::session_event(
-            crate::scrollback::blocks::SessionEvent::TurnCompleted {
-                elapsed: Some(std::time::Duration::from_secs(1)),
-            },
+            crate::scrollback::blocks::SessionEvent::turn_completed(Some(
+                std::time::Duration::from_secs(1),
+            )),
         ));
         state.prepare_layout(80, 8);
         assert!(
@@ -471,9 +471,9 @@ mod tests {
         state.finish_running(think_id);
         state.note_pin_reserve_turn_finished();
         state.push_block(RenderBlock::session_event(
-            crate::scrollback::blocks::SessionEvent::TurnCompleted {
-                elapsed: Some(std::time::Duration::from_secs(2)),
-            },
+            crate::scrollback::blocks::SessionEvent::turn_completed(Some(
+                std::time::Duration::from_secs(2),
+            )),
         ));
         state.prepare_layout(80, 8);
         assert!(state.is_pin_reserve_active());

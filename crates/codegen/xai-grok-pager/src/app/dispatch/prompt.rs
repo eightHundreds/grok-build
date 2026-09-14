@@ -1338,6 +1338,11 @@ pub(super) fn handle_prompt_response(
             || disk_full
             || request_failed_shown;
         let elapsed = agent.turn_elapsed();
+        let token_stats = result
+            .as_ref()
+            .ok()
+            .map(|pr| crate::app::turn_completion::TokenStats::from_meta_map(pr.meta.as_ref()))
+            .unwrap_or_default();
 
         {
             let sid = agent.session.session_id.as_ref().map(|s| s.0.as_ref());
@@ -1419,6 +1424,8 @@ pub(super) fn handle_prompt_response(
                         // Ok-path marker: the Error arm is unreachable here.
                         error_kind: None,
                         error_banner_present: false,
+                        output_tokens: token_stats.output_tokens,
+                        api_duration_ms: token_stats.api_duration_ms,
                     },
                 )
             }

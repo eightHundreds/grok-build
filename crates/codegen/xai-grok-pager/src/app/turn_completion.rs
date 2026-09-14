@@ -74,6 +74,51 @@ pub(crate) struct TerminalMarkerInput<'a> {
     /// Typed kind of a failed stop; picks error-specific failure copy.
     pub error_kind: Option<WireErrorType>,
     pub error_banner_present: bool,
+    /// Whole-turn output tokens from the usage ledger, when reported.
+    pub output_tokens: Option<u64>,
+    /// Ledger `api_duration_ms` (generation time). Used as the token-rate denominator when `> 0`.
+    pub api_duration_ms: Option<u64>,
+}
+
+/// Output tokens and API duration from a turn's usage ledger / PromptResponse `_meta`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct TokenStats {
+    pub output_tokens: Option<u64>,
+    pub api_duration_ms: Option<u64>,
+}
+
+impl TokenStats {
+    /// Prefer whole-prompt ledger output tokens. `last_call_output` is last-model-call only.
+    pub fn from_prompt_usage(
+        usage: Option<&xai_grok_shell::extensions::notification::PromptUsage>,
+        last_call_output: Option<u64>,
+    ) -> Self {
+        match usage {
+            Some(usage) => Self {
+                output_tokens: Some(usage.totals.output_tokens),
+                api_duration_ms: (usage.totals.api_duration_ms > 0)
+                    .then_some(usage.totals.api_duration_ms),
+            },
+            None => Self {
+                output_tokens: last_call_output,
+                api_duration_ms: None,
+            },
+        }
+    }
+
+    pub fn from_meta_map(meta: Option<&serde_json::Map<String, serde_json::Value>>) -> Self {
+        let Some(meta) = meta else {
+            return Self::default();
+        };
+        let usage = meta
+            .get("usage")
+            .and_then(|v| serde_json::from_value(v.clone()).ok());
+        let last_call = meta
+            .get("outputTokens")
+            .or_else(|| meta.get("output_tokens"))
+            .and_then(|v| v.as_u64());
+        Self::from_prompt_usage(usage.as_ref(), last_call)
+    }
 }
 
 /// Saturating `Duration` to ms conversion; missing stays `None`.
@@ -95,7 +140,11 @@ pub(crate) fn terminal_marker(input: TerminalMarkerInput<'_>) -> Option<SessionE
         | TurnStopReason::Refusal
         | TurnStopReason::MaxTokens
         | TurnStopReason::MaxTurnRequests
-        | TurnStopReason::Unknown => Some(SessionEvent::TurnCompleted { elapsed }),
+        | TurnStopReason::Unknown => Some(SessionEvent::turn_completed_with_tokens(
+            elapsed,
+            input.output_tokens,
+            input.api_duration_ms,
+        )),
         TurnStopReason::Cancelled if input.send_now_cancel => None,
         TurnStopReason::Cancelled => Some(cancelled_turn_event(
             input.cancellation_category,
@@ -345,6 +394,10 @@ pub(super) struct TerminalSignal<'a> {
     pub cancellation_context: Option<&'a serde_json::Value>,
     /// Typed kind of a failed stop, parsed at the wire ingress (`wire_error_kind`: absent maps to `None`, unknown to `Some(Other)`).
     pub error_kind: Option<WireErrorType>,
+    /// Whole-turn output tokens from the usage ledger, when the terminal carried usage.
+    pub output_tokens: Option<u64>,
+    /// Ledger `api_duration_ms` from the same usage object.
+    pub api_duration_ms: Option<u64>,
 }
 
 /// What applying a terminal turn signal did to one agent.
@@ -375,6 +428,7 @@ fn arm_driver_turn_end_reconcile(
         cancellation_category,
         cancellation_context,
         error_kind,
+        ..
     } = signal;
     if agent.session.loading_replay {
         return false;
@@ -491,6 +545,8 @@ pub(super) fn finalize_turn_from_terminal(
         cancellation_category,
         cancellation_context,
         error_kind,
+        output_tokens,
+        api_duration_ms,
     } = signal;
     if !agent.attached_as_viewer {
         if arm_driver_turn_end_reconcile(agent, session_id, signal) {
@@ -539,6 +595,8 @@ pub(super) fn finalize_turn_from_terminal(
         error_banner_present: super::dispatch::scrollback_has_recent_error_banner(
             &agent.scrollback,
         ),
+        output_tokens,
+        api_duration_ms,
     });
     push_turn_terminal_marker(agent, event);
 

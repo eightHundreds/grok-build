@@ -575,7 +575,7 @@
         assert_eq!(agent.scrollback.len(), len_before + 1);
         assert!(matches!(
             last_session_event(&agent.scrollback),
-            Some(SessionEvent::TurnCompleted { elapsed: Some(_) })
+            Some(SessionEvent::TurnCompleted { elapsed: Some(_), .. })
         ));
         assert_eq!(agent.turn_started_at, started_at, "replay must not finalize");
     }
@@ -911,7 +911,7 @@
         let agent = app.agents.get(&AgentId(0)).unwrap();
         assert!(matches!(
             last_session_event(&agent.scrollback),
-            Some(SessionEvent::TurnCompleted { elapsed: None })
+            Some(SessionEvent::TurnCompleted { elapsed: None, .. })
         ));
     }
 
@@ -1469,7 +1469,7 @@
         let agent = app.agents.get(&AgentId(0)).unwrap();
         assert!(agent.replayed_terminal_prompts.contains("p1"));
         match last_session_event(&agent.scrollback) {
-            Some(SessionEvent::TurnCompleted { elapsed: Some(d) }) => {
+            Some(SessionEvent::TurnCompleted { elapsed: Some(d), .. }) => {
                 assert_eq!(d, std::time::Duration::from_millis(2500));
             }
             other => panic!("expected Worked-for marker, got {other:?}"),
@@ -1488,7 +1488,7 @@
         );
         let agent = app.agents.get(&AgentId(0)).unwrap();
         match last_session_event(&agent.scrollback) {
-            Some(ev @ SessionEvent::TurnCompleted { elapsed: None }) => {
+            Some(ev @ SessionEvent::TurnCompleted { elapsed: None, .. }) => {
                 assert_eq!(ev.message(), "Turn completed.");
             }
             other => panic!("expected markerless-elapsed completed, got {other:?}"),
