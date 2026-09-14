@@ -465,6 +465,33 @@ fn ssh_xtversion_wezterm_without_kitty_evidence_has_no_alt_enter_fallback() {
 }
 
 #[test]
+fn otty_has_no_newline_fallback_or_no_kitty_protocol_fact() {
+    let terminal = TerminalContext {
+        brand: TerminalName::Otty,
+        env_brand: TerminalName::Otty,
+        ..Default::default()
+    };
+    let report = view(snapshot(
+        &terminal,
+        plain_tmux(),
+        runtime(
+            RuntimeEvidence::Unavailable,
+            RuntimeEvidence::Available(None),
+        ),
+        true,
+    ));
+
+    assert_eq!(report.facts.terminal, TerminalName::Otty);
+    assert!(report.facts.newline.is_none());
+    assert!(
+        !report
+            .findings
+            .iter()
+            .any(|finding| finding.id == crate::diagnostics::NEWLINE_FALLBACK_ID)
+    );
+}
+
+#[test]
 fn non_wezterm_without_kitty_evidence_keeps_ordinary_fallback() {
     let terminal = TerminalContext {
         brand: TerminalName::VsCode,

@@ -94,7 +94,8 @@ pub enum TerminalName {
     /// Windows Terminal (wt, the default terminal on Windows 11+).
     #[strum(to_string = "Windows Terminal")]
     WindowsTerminal,
-    /// Otty (otty.sh). Wraps macOS IME commits in bracketed paste.
+    /// Otty (otty.sh). Speaks Kitty keyboard protocol and CSI focus reporting.
+    /// Also wraps macOS IME commits in bracketed paste (see [`Self::delivers_ime_as_bracketed_paste`]).
     #[strum(to_string = "Otty")]
     Otty,
     #[default]
@@ -125,8 +126,9 @@ impl TerminalName {
 
     /// Brands whose capabilities are not positively classified.
     /// They share [`Self::Unknown`]'s fail-closed posture (no KKP probe, conservative hyperlinks/notifications/focus, etc.).
+    /// Otty is classified: it is a known Kitty-protocol host. Its IME-as-bracketed-paste quirk is gated separately.
     pub fn is_capability_unclassified(self) -> bool {
-        matches!(self, Self::Unknown | Self::Otty)
+        matches!(self, Self::Unknown)
     }
 
     /// Host applies OSC 52 writes to the system pasteboard (fail closed).
