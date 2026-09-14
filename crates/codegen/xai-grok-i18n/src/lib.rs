@@ -164,6 +164,11 @@ mod tests {
         assert_eq!(t("Tip: ").as_ref(), "提示：");
         assert_eq!(t("Always allow:").as_ref(), "始终允许：");
         assert_eq!(t("Return to the welcome screen").as_ref(), "返回欢迎屏");
+        assert_eq!(
+            t_fmt("Worked for {duration}", &[("duration", "12s")]),
+            "工作了 12s"
+        );
+        assert_eq!(t_fmt("{rate} token/s", &[("rate", "20")]), "20 token/秒");
     }
 
     #[test]

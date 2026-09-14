@@ -873,9 +873,7 @@ pub(crate) fn finalize_finished_child_view(
     child_view
         .scrollback
         .push_block(crate::scrollback::block::RenderBlock::session_event(
-            crate::scrollback::blocks::SessionEvent::TurnCompleted {
-                elapsed: Some(elapsed),
-            },
+            crate::scrollback::blocks::SessionEvent::turn_completed(Some(elapsed)),
         ));
 }
 

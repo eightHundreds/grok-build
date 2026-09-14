@@ -271,9 +271,9 @@
                 .unwrap();
             child
                 .scrollback
-                .push_block(RenderBlock::session_event(SessionEvent::TurnCompleted {
-                    elapsed: Some(std::time::Duration::from_secs(1)),
-                }));
+                .push_block(RenderBlock::session_event(SessionEvent::turn_completed(
+                    Some(std::time::Duration::from_secs(1)),
+                )));
             child
                 .scrollback
                 .push_block(RenderBlock::system("turn-2 content"));

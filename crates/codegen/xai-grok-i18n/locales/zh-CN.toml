@@ -708,3 +708,8 @@
 "✓ Default model: cleared" = "✓ 默认模型：已清除"
 "✓ Fork secondary model: already at default" = "✓ 分叉次要模型：已是默认"
 "✓ Fork secondary model: cleared" = "✓ 分叉次要模型：已清除"
+
+# --- turn footer ---
+"Worked for {duration}" = "工作了 {duration}"
+"{rate} token/s" = "{rate} token/秒"
+"Turn completed." = "回合已完成。"

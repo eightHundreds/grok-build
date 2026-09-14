@@ -658,6 +658,8 @@ pub(crate) fn reconcile_overdue_turn_ends(app: &mut AppView) -> Option<Vec<Effec
                 error_kind: pending.error_kind,
                 error_banner_present: !was_cancelling
                     && crate::app::dispatch::scrollback_has_recent_error_banner(&agent.scrollback),
+                output_tokens: None,
+                api_duration_ms: None,
             },
         );
         crate::app::turn_completion::push_turn_terminal_marker(agent, event);

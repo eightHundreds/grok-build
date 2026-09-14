@@ -1097,9 +1097,9 @@ fn real_end_marker_stays_plain_with_running_work() {
 
     push_turn_terminal_marker(
         &mut agent,
-        Some(SessionEvent::TurnCompleted {
-            elapsed: Some(std::time::Duration::from_secs(2)),
-        }),
+        Some(SessionEvent::turn_completed(Some(
+            std::time::Duration::from_secs(2),
+        ))),
     );
 
     let block = last_marker_block(&agent);
@@ -1117,9 +1117,9 @@ fn workless_marker_renders_legacy_text() {
 
     push_turn_terminal_marker(
         &mut agent,
-        Some(SessionEvent::TurnCompleted {
-            elapsed: Some(std::time::Duration::from_secs(2)),
-        }),
+        Some(SessionEvent::turn_completed(Some(
+            std::time::Duration::from_secs(2),
+        ))),
     );
 
     let block = last_marker_block(&agent);
@@ -1229,9 +1229,9 @@ fn turn_end_after_park_pushes_single_marker() {
 
     push_turn_terminal_marker(
         &mut agent,
-        Some(SessionEvent::TurnCompleted {
-            elapsed: Some(std::time::Duration::from_secs(5)),
-        }),
+        Some(SessionEvent::turn_completed(Some(
+            std::time::Duration::from_secs(5),
+        ))),
     );
 
     assert_eq!(
@@ -1251,6 +1251,8 @@ fn base_input<'a>(stop: TurnStopReason) -> TerminalMarkerInput<'a> {
         cancellation_category: None,
         error_kind: None,
         error_banner_present: false,
+        output_tokens: None,
+        api_duration_ms: None,
     }
 }
 
@@ -1286,8 +1288,34 @@ fn classifier_completed_with_elapsed() {
     let ev = terminal_marker(base_input(TurnStopReason::EndTurn)).unwrap();
     assert!(matches!(
         ev,
-        SessionEvent::TurnCompleted { elapsed: Some(d) } if d == std::time::Duration::from_millis(1000)
+        SessionEvent::TurnCompleted { elapsed: Some(d), .. } if d == std::time::Duration::from_millis(1000)
     ));
+}
+
+#[test]
+fn classifier_completed_appends_token_rate() {
+    let mut input = base_input(TurnStopReason::EndTurn);
+    input.elapsed_ms = Some(12_000);
+    input.output_tokens = Some(240);
+    let ev = terminal_marker(input).unwrap();
+    assert_eq!(ev.message(), "Worked for 12s    20 token/s");
+}
+
+#[test]
+fn token_stats_prefers_ledger_output_over_last_call() {
+    let mut usage = xai_grok_shell::extensions::notification::PromptUsage::default();
+    usage.totals.output_tokens = 240;
+    usage.totals.api_duration_ms = 3_000;
+    let stats = TokenStats::from_prompt_usage(Some(&usage), Some(1));
+    assert_eq!(stats.output_tokens, Some(240));
+    assert_eq!(stats.api_duration_ms, Some(3_000));
+}
+
+#[test]
+fn token_stats_falls_back_to_last_call_when_usage_missing() {
+    let stats = TokenStats::from_prompt_usage(None, Some(12));
+    assert_eq!(stats.output_tokens, Some(12));
+    assert_eq!(stats.api_duration_ms, None);
 }
 
 #[test]
@@ -1295,7 +1323,10 @@ fn classifier_completed_without_elapsed_is_none() {
     let mut input = base_input(TurnStopReason::EndTurn);
     input.elapsed_ms = None;
     let ev = terminal_marker(input).unwrap();
-    assert!(matches!(ev, SessionEvent::TurnCompleted { elapsed: None }));
+    assert!(matches!(
+        ev,
+        SessionEvent::TurnCompleted { elapsed: None, .. }
+    ));
 }
 
 #[test]

@@ -2652,9 +2652,9 @@ mod tests {
         agent.note_self_originated_prompt("p-late");
         push_send_now_user_block(agent, "p-late", "prompt", "ty", false);
         agent.scrollback.push_block(RenderBlock::session_event(
-            crate::scrollback::blocks::SessionEvent::TurnCompleted {
-                elapsed: Some(std::time::Duration::from_secs(2)),
-            },
+            crate::scrollback::blocks::SessionEvent::turn_completed(Some(
+                std::time::Duration::from_secs(2),
+            )),
         ));
         agent
             .scrollback

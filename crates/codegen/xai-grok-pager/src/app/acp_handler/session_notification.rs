@@ -126,6 +126,7 @@ fn synthesize_replay_turn_marker(
     agent_result: Option<&str>,
     error_kind: Option<crate::app::error_display::WireErrorType>,
     elapsed_ms: Option<u64>,
+    usage: Option<&xai_grok_shell::extensions::notification::PromptUsage>,
     meta: Option<&serde_json::Value>,
 ) -> Option<crate::scrollback::blocks::SessionEvent> {
     use crate::app::turn_completion::{
@@ -149,6 +150,7 @@ fn synthesize_replay_turn_marker(
     let cancel_trigger = terminal_meta_str(meta, CANCEL_TRIGGER_KEY);
     let cancellation_category = terminal_meta_str(meta, CANCELLATION_CATEGORY_KEY);
     let paint_rate_limit_failure = chatty_rate_limit && !suppress && !banner;
+    let token_stats = crate::app::turn_completion::TokenStats::from_prompt_usage(usage, None);
     let marker = if suppress {
         None
     } else {
@@ -160,6 +162,8 @@ fn synthesize_replay_turn_marker(
             cancellation_category,
             error_kind,
             error_banner_present: banner,
+            output_tokens: token_stats.output_tokens,
+            api_duration_ms: token_stats.api_duration_ms,
         })
     };
     marker.or_else(|| {
@@ -339,9 +343,12 @@ pub(super) fn handle_session_notification_with_origin(
             agent_result,
             error_kind,
             elapsed_ms,
+            usage,
             ..
         } => {
             let error_kind = crate::app::error_display::wire_error_kind(error_kind.as_deref());
+            let token_stats =
+                crate::app::turn_completion::TokenStats::from_prompt_usage(usage.as_ref(), None);
             if agent.session.loading_replay {
                 let first = agent.replayed_terminal_prompts.insert(prompt_id.clone());
                 if first
@@ -353,6 +360,7 @@ pub(super) fn handle_session_notification_with_origin(
                         agent_result.as_deref(),
                         error_kind,
                         elapsed_ms,
+                        usage.as_ref(),
                         session_notif.meta.as_ref(),
                     )
                 {
@@ -414,6 +422,8 @@ pub(super) fn handle_session_notification_with_origin(
                                 super::super::turn_completion::CANCELLATION_CATEGORY_KEY,
                             ),
                             error_kind,
+                            output_tokens: token_stats.output_tokens,
+                            api_duration_ms: token_stats.api_duration_ms,
                         },
                     );
                     true
@@ -451,6 +461,8 @@ pub(super) fn handle_session_notification_with_origin(
                                 m.get(super::super::turn_completion::CANCELLATION_CONTEXT_KEY)
                             }),
                             error_kind,
+                            output_tokens: token_stats.output_tokens,
+                            api_duration_ms: token_stats.api_duration_ms,
                         },
                     ));
                 false

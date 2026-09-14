@@ -353,9 +353,9 @@ fn collapsed_turn_marker_breaks_dense_run_walks() {
     let before: Vec<_> = (0..4)
         .map(|i| state.push_block(tool_block(&format!("before {i}"))))
         .collect();
-    let marker = state.push_block(RenderBlock::session_event(SessionEvent::TurnCompleted {
-        elapsed: Some(Duration::from_secs(3)),
-    }));
+    let marker = state.push_block(RenderBlock::session_event(SessionEvent::turn_completed(
+        Some(Duration::from_secs(3)),
+    )));
     state
         .get_by_id_mut(marker)
         .unwrap()

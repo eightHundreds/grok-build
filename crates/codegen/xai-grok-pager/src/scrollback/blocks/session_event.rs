@@ -31,6 +31,12 @@ pub enum SessionEvent {
         /// Wall-clock elapsed time for the turn.
         /// `None` when unknown: a wake turn whose deltas carried no `turnStartMs` (old shells) renders without a duration instead of a fake "0.0s".
         elapsed: Option<Duration>,
+        /// Whole-turn output tokens from the usage ledger (`PromptUsage.totals.output_tokens`).
+        /// `None` when usage was not reported (older shells / missing ledger).
+        output_tokens: Option<u64>,
+        /// Summed model-call API duration from the same ledger (`api_duration_ms`).
+        /// Rate uses this when `> 0`; otherwise wall-clock [`Self::TurnCompleted::elapsed`].
+        api_duration_ms: Option<u64>,
     },
     /// Agent turn was cancelled by the user.
     TurnCancelled {
@@ -158,16 +164,45 @@ pub enum SessionEvent {
 }
 
 impl SessionEvent {
+    /// A `Worked for` / `Turn completed` marker with no token-rate suffix.
+    pub fn turn_completed(elapsed: Option<Duration>) -> Self {
+        Self::turn_completed_with_tokens(elapsed, None, None)
+    }
+
+    /// A `Worked for` marker that can show `N token/s` when both tokens and a positive duration are known.
+    pub fn turn_completed_with_tokens(
+        elapsed: Option<Duration>,
+        output_tokens: Option<u64>,
+        api_duration_ms: Option<u64>,
+    ) -> Self {
+        Self::TurnCompleted {
+            elapsed,
+            output_tokens,
+            api_duration_ms,
+        }
+    }
+
     /// Format the event as a human-readable string.
     pub fn message(&self) -> String {
         match self {
             // Deliberately period-less: don't re-punctuate
             SessionEvent::TurnCompleted {
                 elapsed: Some(elapsed),
+                output_tokens,
+                api_duration_ms,
             } => {
-                format!("Worked for {}", format_duration(*elapsed))
+                let worked = xai_grok_i18n::t_fmt(
+                    "Worked for {duration}",
+                    &[("duration", &format_duration(*elapsed))],
+                );
+                match format_worked_for_token_rate(*output_tokens, *api_duration_ms, *elapsed) {
+                    Some(rate) => format!("{worked}    {rate}"),
+                    None => worked,
+                }
             }
-            SessionEvent::TurnCompleted { elapsed: None } => "Turn completed.".to_string(),
+            SessionEvent::TurnCompleted { elapsed: None, .. } => {
+                xai_grok_i18n::t("Turn completed.").into_owned()
+            }
             SessionEvent::TurnCancelled { elapsed } => {
                 format!("Turn cancelled by user in {}.", format_duration(*elapsed))
             }
@@ -348,6 +383,39 @@ fn format_tokens(tokens: u64) -> String {
         format!("{:.1}k", tokens as f64 / 1000.0)
     } else {
         tokens.to_string()
+    }
+}
+
+/// Output-token rate for the `Worked for` line: `20 token/s` or `20.4 token/s`.
+/// Hidden when tokens are unknown or the rate duration is zero.
+/// Prefers ledger `api_duration_ms` (generation time); falls back to the displayed turn elapsed.
+fn format_worked_for_token_rate(
+    output_tokens: Option<u64>,
+    api_duration_ms: Option<u64>,
+    elapsed: Duration,
+) -> Option<String> {
+    let tokens = output_tokens?;
+    let duration = match api_duration_ms.filter(|&ms| ms > 0) {
+        Some(ms) => Duration::from_millis(ms),
+        None => elapsed,
+    };
+    let secs = duration.as_secs_f64();
+    if secs <= 0.0 {
+        return None;
+    }
+    let rate_text = format_token_rate_number(tokens as f64 / secs);
+    Some(xai_grok_i18n::t_fmt(
+        "{rate} token/s",
+        &[("rate", rate_text.as_str())],
+    ))
+}
+
+/// Integer when the one-decimal rounding is a whole number (`20`), otherwise one decimal (`20.4`).
+fn format_token_rate_number(rate: f64) -> String {
+    let one_decimal = format!("{rate:.1}");
+    match one_decimal.strip_suffix(".0") {
+        Some(whole) => whole.to_string(),
+        None => one_decimal,
     }
 }
 
@@ -567,10 +635,61 @@ mod tests {
 
     #[test]
     fn turn_completed_message() {
-        let event = SessionEvent::TurnCompleted {
-            elapsed: Some(Duration::from_secs(125)),
-        };
+        let event = SessionEvent::turn_completed(Some(Duration::from_secs(125)));
         assert_eq!(event.message(), "Worked for 2m5s");
+    }
+
+    #[test]
+    fn turn_completed_message_integer_token_rate() {
+        let event = SessionEvent::turn_completed_with_tokens(
+            Some(Duration::from_secs(12)),
+            Some(240),
+            None,
+        );
+        assert_eq!(event.message(), "Worked for 12s    20 token/s");
+    }
+
+    #[test]
+    fn turn_completed_message_one_decimal_token_rate() {
+        let event = SessionEvent::turn_completed_with_tokens(
+            Some(Duration::from_secs(10)),
+            Some(204),
+            None,
+        );
+        assert_eq!(event.message(), "Worked for 10s    20.4 token/s");
+    }
+
+    #[test]
+    fn turn_completed_message_omits_rate_when_tokens_unknown() {
+        let event = SessionEvent::turn_completed(Some(Duration::from_secs(12)));
+        assert_eq!(event.message(), "Worked for 12s");
+    }
+
+    #[test]
+    fn turn_completed_message_omits_rate_when_duration_zero() {
+        let event = SessionEvent::turn_completed_with_tokens(Some(Duration::ZERO), Some(100), None);
+        assert_eq!(event.message(), "Worked for 0.0s");
+    }
+
+    #[test]
+    fn turn_completed_message_uses_api_duration_for_rate() {
+        let event = SessionEvent::turn_completed_with_tokens(
+            Some(Duration::from_secs(12)),
+            Some(240),
+            Some(3_000),
+        );
+        assert_eq!(event.message(), "Worked for 12s    80 token/s");
+    }
+
+    #[test]
+    fn turn_completed_message_zh_includes_token_rate() {
+        let _g = xai_grok_i18n::pin_locale("zh");
+        let event = SessionEvent::turn_completed_with_tokens(
+            Some(Duration::from_secs(12)),
+            Some(240),
+            None,
+        );
+        assert_eq!(event.message(), "工作了 12s    20 token/秒");
     }
 
     #[test]
@@ -1125,9 +1244,8 @@ mod tests {
 
     #[test]
     fn non_recap_events_stay_non_interactive() {
-        let block = SessionEventBlock::new(SessionEvent::TurnCompleted {
-            elapsed: Some(Duration::from_secs(5)),
-        });
+        let block =
+            SessionEventBlock::new(SessionEvent::turn_completed(Some(Duration::from_secs(5))));
         assert!(!block.is_foldable());
         assert!(!block.is_selectable());
         assert!(!block.has_bullet(&ctx()));
