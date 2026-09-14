@@ -2821,7 +2821,28 @@ mod tests {
         assert!(supports_focus_tracking(TerminalName::GrokDesktop));
         assert!(!supports_focus_tracking(TerminalName::AppleTerminal));
         assert!(!supports_focus_tracking(TerminalName::Unknown));
-        assert!(!supports_focus_tracking(TerminalName::Otty));
+        assert!(supports_focus_tracking(TerminalName::Otty));
+    }
+
+    #[test]
+    fn notification_focus_tracking_no_warning_for_otty() {
+        let ctx = TerminalContext {
+            brand: TerminalName::Otty,
+            ..Default::default()
+        };
+        let query = FakeTmuxQuery::healthy_modern();
+        let w = collect_notification_warnings(
+            &ctx,
+            NotificationMethod::Auto,
+            NotificationProtocol::Bel,
+            NotificationCondition::Unfocused,
+            &query,
+        );
+        assert!(
+            !w.iter()
+                .any(|w| w.category == WarningCategory::FocusTrackingUnavailable),
+            "Otty supports CSI focus reporting"
+        );
     }
 
     // -- Color / theme rows and LimitedColorSupport warnings ------------------

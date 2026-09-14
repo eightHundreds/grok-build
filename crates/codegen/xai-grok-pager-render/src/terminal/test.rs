@@ -70,23 +70,63 @@ fn otty_delivers_ime_as_bracketed_paste_only() {
 }
 
 #[test]
-fn otty_is_capability_unclassified_like_unknown() {
-    assert!(TerminalName::Otty.is_capability_unclassified());
+fn otty_is_classified_unlike_unknown() {
+    assert!(!TerminalName::Otty.is_capability_unclassified());
     assert!(TerminalName::Unknown.is_capability_unclassified());
     assert!(!TerminalName::Ghostty.is_capability_unclassified());
+    assert!(!TerminalName::Kitty.is_capability_unclassified());
+    assert!(!TerminalName::WezTerm.is_capability_unclassified());
     assert!(!TerminalName::AppleTerminal.is_capability_unclassified());
 }
 
 #[test]
-fn otty_skips_kitty_keyboard_like_unknown() {
-    let ctx = TerminalContext {
+fn otty_enables_kitty_keyboard_like_ghostty() {
+    let otty = TerminalContext {
         brand: TerminalName::Otty,
         env_brand: TerminalName::Otty,
         multiplexer: MultiplexerKind::Undetected,
         ..Default::default()
     };
-    assert_eq!(ctx.kitty_skip_reason(), Some("unknown_no_multiplexer"));
-    assert!(ctx.shift_enter_unavailable());
+    let ghostty = TerminalContext {
+        brand: TerminalName::Ghostty,
+        env_brand: TerminalName::Ghostty,
+        multiplexer: MultiplexerKind::Undetected,
+        ..Default::default()
+    };
+    assert_eq!(otty.kitty_skip_reason(), None);
+    assert_eq!(otty.kitty_skip_reason(), ghostty.kitty_skip_reason());
+    assert!(!otty.shift_enter_unavailable());
+    assert!(!otty.ctrl_dot_unreliable());
+    assert_eq!(
+        negotiated_kitty_flags(otty.kitty_skip_reason(), None),
+        negotiated_kitty_flags(ghostty.kitty_skip_reason(), None),
+    );
+}
+
+#[test]
+fn otty_inside_old_tmux_still_skips_for_tmux() {
+    let ctx = TerminalContext {
+        brand: TerminalName::Otty,
+        env_brand: TerminalName::Otty,
+        multiplexer: MultiplexerKind::Tmux,
+        tmux_version: Some("tmux 3.2".to_owned()),
+        ..Default::default()
+    };
+    assert_eq!(ctx.kitty_skip_reason(), Some("tmux_old"));
+}
+
+#[test]
+fn otty_inside_modern_tmux_enables_kitty_keyboard() {
+    let ctx = TerminalContext {
+        brand: TerminalName::Otty,
+        env_brand: TerminalName::Otty,
+        multiplexer: MultiplexerKind::Tmux,
+        tmux_version: Some("tmux 3.4".to_owned()),
+        ..Default::default()
+    };
+    assert_eq!(ctx.kitty_skip_reason(), None);
+    assert!(!ctx.shift_enter_unavailable());
+    assert!(!ctx.ctrl_dot_unreliable());
 }
 
 // -- detect_terminal_brand_from_env (pure) --------------------------------
