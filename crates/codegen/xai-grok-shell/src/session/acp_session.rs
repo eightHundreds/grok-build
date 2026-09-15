@@ -1903,6 +1903,9 @@ mod auth_retry_budget_tests;
 #[path = "acp_session_tests/auto_wake_suppression_tests.rs"]
 mod auto_wake_suppression_tests;
 #[cfg(test)]
+#[path = "acp_session_tests/bash_mode_history_output_tests.rs"]
+mod bash_mode_history_output_tests;
+#[cfg(test)]
 #[path = "acp_session_tests/between_turn_completion_tests.rs"]
 mod between_turn_completion_tests;
 #[cfg(test)]

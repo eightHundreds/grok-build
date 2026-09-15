@@ -4,9 +4,9 @@
 use super::*;
 use std::path::PathBuf;
 
-/// Number of output lines to show in final bash mode output summary
-const BASH_MODE_FINAL_OUTPUT_LINES: usize = 10;
 const BASH_MODE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60 * 60);
+/// Capture cap for bash-mode (`!`) commands. Applies to TUI, prompt, and next-turn history.
+const BASH_MODE_OUTPUT_BYTE_LIMIT: usize = 1_048_576;
 
 /// Phase 2: dispatch a tool call through [`WorkspaceOps::call_tool`].
 ///
@@ -270,9 +270,9 @@ impl SessionActor {
             cwd: self.tool_context.cwd.clone(),
             env: self.tool_context.session_env.as_ref().clone(),
             timeout: BASH_MODE_TIMEOUT,
-            output_byte_limit: 1_048_576, // 1 MiB
-            stream: true,                 // Enable streaming for bash mode
-            output_file: None,            // No file logging for interactive bash mode
+            output_byte_limit: BASH_MODE_OUTPUT_BYTE_LIMIT,
+            stream: true,      // Enable streaming for bash mode
+            output_file: None, // No file logging for interactive bash mode
         };
 
         let result = self.tool_context.terminal.run(request).await;
@@ -288,17 +288,8 @@ impl SessionActor {
             Err(e) => (format!("Error running command: {}", e), -1, false, None),
         };
 
-        // Full stdout for the TUI; prompt/history keep a last-N tail so dumps do not inflate the next turn
+        // Captured stdout (already 1 MiB-capped by the runner) is used for TUI, prompt, and next-turn history.
         let full_output = output.trim_end().to_string();
-        let lines: Vec<&str> = full_output.lines().collect();
-        let total_lines = lines.len();
-        let history_output = if total_lines > BASH_MODE_FINAL_OUTPUT_LINES {
-            let start = total_lines - BASH_MODE_FINAL_OUTPUT_LINES;
-            let last_lines = lines[start..].join("\n");
-            format!("... ({} lines)\n{}", total_lines, last_lines)
-        } else {
-            full_output.clone()
-        };
 
         let is_backgrounded = signal.as_deref() == Some("backgrounded");
 
@@ -311,7 +302,7 @@ impl SessionActor {
                 acp::ToolCallStatus::Failed
             };
             let bash_output = BashOutput {
-                output_for_prompt: BashOutput::make_output_for_prompt(&history_output),
+                output_for_prompt: BashOutput::make_output_for_prompt(&full_output),
                 output: full_output.as_bytes().to_vec(),
                 exit_code,
                 command: command.clone(),
@@ -341,10 +332,7 @@ impl SessionActor {
         // Old sessions that persisted one still replay fine
 
         // Build a single user message for chat history that includes command, output, and exit code
-        let user_message = format!(
-            "I executed a terminal command: `{}`\n\nOutput:\n```\n{}\n```\n\n[exit code: {}]",
-            command, history_output, exit_code
-        );
+        let user_message = bash_mode_history_user_message(&command, &full_output, exit_code);
 
         // Add to chat history as a user message only
         self.chat_state_handle
@@ -358,6 +346,18 @@ impl SessionActor {
         let total_tokens = self.chat_state_handle.get_total_tokens().await;
         ok_end_turn(total_tokens, None)
     }
+}
+
+/// Chat-history / next-turn user message after a bash-mode (`!`) command.
+/// `output` is the captured body (already 1 MiB-capped by the runner); there is no last-N line tail.
+pub(super) fn bash_mode_history_user_message(
+    command: &str,
+    output: &str,
+    exit_code: i32,
+) -> String {
+    format!(
+        "I executed a terminal command: `{command}`\n\nOutput:\n```\n{output}\n```\n\n[exit code: {exit_code}]"
+    )
 }
 
 // ── Tool argument error formatting ─────────────────────────────────────
@@ -443,6 +443,45 @@ mod tests {
         assert_eq!(
             backend_tool_call_status(None),
             acp::ToolCallStatus::Completed
+        );
+    }
+
+    /// History/prompt used to keep only the last 10 lines as `... (N lines)\n{tail}`.
+    /// The next turn now sees the full captured body (still 1 MiB-capped by the runner).
+    #[test]
+    fn bash_mode_history_keeps_all_captured_lines_without_tail_prefix() {
+        let output: String = (1..=15)
+            .map(|i| format!("L{i:02}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let msg = bash_mode_history_user_message("printf 'L%02d\\n' $(seq 1 15)", &output, 0);
+        for i in 1..=15 {
+            assert!(
+                msg.contains(&format!("L{i:02}")),
+                "history must keep line L{i:02}; got:\n{msg}"
+            );
+        }
+        assert!(
+            !msg.contains("... (15 lines)"),
+            "history must not apply the old last-10-line tail; got:\n{msg}"
+        );
+        assert!(
+            msg.contains("[exit code: 0]"),
+            "history must still include the exit code; got:\n{msg}"
+        );
+    }
+
+    #[test]
+    fn bash_mode_history_keeps_short_output_verbatim() {
+        let output = "one\ntwo\nthree";
+        let msg = bash_mode_history_user_message("echo", output, 0);
+        assert!(
+            msg.contains(output),
+            "short output must be kept verbatim; got:\n{msg}"
+        );
+        assert!(
+            !msg.contains("... ("),
+            "short output must not grow a tail marker; got:\n{msg}"
         );
     }
 }
