@@ -4,6 +4,7 @@
 use super::support::*;
 use super::*;
 use std::sync::Arc;
+use std::time::Duration;
 
 /// Terminal that returns a fixed stdout body and exit 0.
 #[derive(Debug)]
@@ -40,7 +41,9 @@ async fn bash_mode_history_push_keeps_full_captured_output() {
                 .join("\n");
             let (gateway_tx, _gateway_rx) =
                 tokio::sync::mpsc::unbounded_channel::<xai_acp_lib::AcpClientMessage>();
-            let (persistence_tx, _prx) = tokio::sync::mpsc::unbounded_channel::<PersistenceMsg>();
+            let (persistence_tx, persistence_rx) =
+                tokio::sync::mpsc::unbounded_channel::<PersistenceMsg>();
+            drain_persistence(persistence_rx);
             let (actor, ev) = create_test_actor_with_terminal(
                 0,
                 256_000,
@@ -55,16 +58,19 @@ async fn bash_mode_history_push_keeps_full_captured_output() {
             // Drop the event receiver so `flush_replay_actor` fails immediately instead of waiting 5s.
             drop(ev);
 
-            actor
-                .handle_direct_bash_command(
+            tokio::time::timeout(
+                Duration::from_secs(10),
+                actor.handle_direct_bash_command(
                     "bash-1",
                     "printf 'L%02d\\n' $(seq 1 15)".to_string(),
                     &[acp::ContentBlock::Text(acp::TextContent::new(
                         "!printf 'L%02d\\n' $(seq 1 15)",
                     ))],
-                )
-                .await
-                .expect("bash-mode turn should complete");
+                ),
+            )
+            .await
+            .expect("bash-mode turn timed out")
+            .expect("bash-mode turn should complete");
 
             let conv = actor.chat_state_handle.get_conversation().await;
             let text: String = conv.iter().map(|item| item.text_content()).collect();
