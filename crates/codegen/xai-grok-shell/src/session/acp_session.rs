@@ -1906,6 +1906,9 @@ mod auto_wake_suppression_tests;
 #[path = "acp_session_tests/between_turn_completion_tests.rs"]
 mod between_turn_completion_tests;
 #[cfg(test)]
+#[path = "acp_session_tests/bash_mode_history_tests.rs"]
+mod bash_mode_history_tests;
+#[cfg(test)]
 #[path = "acp_session_tests/build_tool_parse_error_message_tests.rs"]
 mod build_tool_parse_error_message_tests;
 #[cfg(test)]

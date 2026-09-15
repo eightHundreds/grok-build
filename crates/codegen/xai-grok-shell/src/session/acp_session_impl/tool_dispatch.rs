@@ -4,8 +4,6 @@
 use super::*;
 use std::path::PathBuf;
 
-/// Number of output lines to show in final bash mode output summary
-const BASH_MODE_FINAL_OUTPUT_LINES: usize = 10;
 const BASH_MODE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60 * 60);
 
 /// Phase 2: dispatch a tool call through [`WorkspaceOps::call_tool`].
@@ -288,17 +286,8 @@ impl SessionActor {
             Err(e) => (format!("Error running command: {}", e), -1, false, None),
         };
 
-        // Full stdout for the TUI; prompt/history keep a last-N tail so dumps do not inflate the next turn
+        // TUI, prompt, and chat history share the same captured output (1 MiB `output_byte_limit`).
         let full_output = output.trim_end().to_string();
-        let lines: Vec<&str> = full_output.lines().collect();
-        let total_lines = lines.len();
-        let history_output = if total_lines > BASH_MODE_FINAL_OUTPUT_LINES {
-            let start = total_lines - BASH_MODE_FINAL_OUTPUT_LINES;
-            let last_lines = lines[start..].join("\n");
-            format!("... ({} lines)\n{}", total_lines, last_lines)
-        } else {
-            full_output.clone()
-        };
 
         let is_backgrounded = signal.as_deref() == Some("backgrounded");
 
@@ -311,7 +300,7 @@ impl SessionActor {
                 acp::ToolCallStatus::Failed
             };
             let bash_output = BashOutput {
-                output_for_prompt: BashOutput::make_output_for_prompt(&history_output),
+                output_for_prompt: BashOutput::make_output_for_prompt(&full_output),
                 output: full_output.as_bytes().to_vec(),
                 exit_code,
                 command: command.clone(),
@@ -343,7 +332,7 @@ impl SessionActor {
         // Build a single user message for chat history that includes command, output, and exit code
         let user_message = format!(
             "I executed a terminal command: `{}`\n\nOutput:\n```\n{}\n```\n\n[exit code: {}]",
-            command, history_output, exit_code
+            command, full_output, exit_code
         );
 
         // Add to chat history as a user message only
