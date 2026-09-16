@@ -1426,6 +1426,7 @@ pub(super) fn handle_prompt_response(
                         error_banner_present: false,
                         output_tokens: token_stats.output_tokens,
                         api_duration_ms: token_stats.api_duration_ms,
+                        time_to_first_token_ms: token_stats.time_to_first_token_ms,
                     },
                 )
             }

@@ -434,6 +434,9 @@ pub(crate) struct PromptResponseMeta {
     /// Whole-prompt billing (sibling token fields are last call only).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<crate::extensions::notification::PromptUsage>,
+    /// Per-turn TTFT (turn start → first token). Sibling of `usage` so it survives a missing ledger.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_to_first_token_ms: Option<u64>,
     /// Why the turn ended early (`cancellation_category_meta`).
     /// A cancel's category (`"HookDenied"`, `"MidTurnAbort"`, …) or a synthetic end (`"max_turns_reached"`, `"action_stationarity"`).
     /// `None` for normal completions.
@@ -499,6 +502,9 @@ pub(crate) fn build_prompt_response_meta(
         Some(Err(error)) => (None, Some(error)),
         None => (None, None),
     };
+    let time_to_first_token_ms = prompt_usage
+        .as_ref()
+        .and_then(|u| u.time_to_first_token_ms);
     let meta = PromptResponseMeta {
         session_id: session_id.to_string(),
         request_id: prompt_id.to_string(),
@@ -510,6 +516,7 @@ pub(crate) fn build_prompt_response_meta(
         cached_read_tokens: last_turn_usage.map(|u| u.cached_prompt_tokens),
         reasoning_tokens: last_turn_usage.map(|u| u.reasoning_tokens),
         usage: prompt_usage,
+        time_to_first_token_ms,
         cancellation_category,
         cancellation_context,
         cancel_trigger,

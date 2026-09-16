@@ -1644,7 +1644,8 @@ impl SessionActor {
                 }
             }
         }
-        let usage = self.freeze_prompt_usage(prompt_id).await;
+        let mut usage = self.freeze_prompt_usage(prompt_id).await;
+        self.stamp_prompt_usage_ttft(&mut usage);
         self.persist_live_usage().await;
         drop(turn_scope_guard);
         match result {

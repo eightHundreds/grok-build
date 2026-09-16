@@ -481,6 +481,7 @@ mod tests {
             model_usage: Default::default(),
             num_turns: 1,
             usage_is_incomplete: false,
+            time_to_first_token_ms: None,
         };
         let free = "subscription:free-usage-exhausted quota hit";
         let err = attach_prompt_usage(

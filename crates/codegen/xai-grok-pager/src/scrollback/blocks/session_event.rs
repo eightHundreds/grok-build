@@ -37,6 +37,8 @@ pub enum SessionEvent {
         /// Summed model-call API duration from the same ledger (`api_duration_ms`).
         /// Rate uses this when `> 0`; otherwise wall-clock [`Self::TurnCompleted::elapsed`].
         api_duration_ms: Option<u64>,
+        /// Per-turn TTFT (turn start → first token of any channel). Hidden when missing.
+        time_to_first_token_ms: Option<u64>,
     },
     /// Agent turn was cancelled by the user.
     TurnCancelled {
@@ -164,21 +166,23 @@ pub enum SessionEvent {
 }
 
 impl SessionEvent {
-    /// A `Worked for` / `Turn completed` marker with no token-rate suffix.
+    /// A `Worked for` / `Turn completed` marker with no token-rate or TTFT suffix.
     pub fn turn_completed(elapsed: Option<Duration>) -> Self {
-        Self::turn_completed_with_tokens(elapsed, None, None)
+        Self::turn_completed_with_tokens(elapsed, None, None, None)
     }
 
-    /// A `Worked for` marker that can show `N token/s` when both tokens and a positive duration are known.
+    /// A `Worked for` marker that can show `N token/s` and `TTFT` when those values are known.
     pub fn turn_completed_with_tokens(
         elapsed: Option<Duration>,
         output_tokens: Option<u64>,
         api_duration_ms: Option<u64>,
+        time_to_first_token_ms: Option<u64>,
     ) -> Self {
         Self::TurnCompleted {
             elapsed,
             output_tokens,
             api_duration_ms,
+            time_to_first_token_ms,
         }
     }
 
@@ -190,14 +194,19 @@ impl SessionEvent {
                 elapsed: Some(elapsed),
                 output_tokens,
                 api_duration_ms,
+                time_to_first_token_ms,
             } => {
                 let worked = xai_grok_i18n::t_fmt(
                     "Worked for {duration}",
                     &[("duration", &format_duration(*elapsed))],
                 );
-                match format_worked_for_token_rate(*output_tokens, *api_duration_ms, *elapsed) {
-                    Some(rate) => format!("{worked}    {rate}"),
-                    None => worked,
+                let rate = format_worked_for_token_rate(*output_tokens, *api_duration_ms, *elapsed);
+                let ttft = format_worked_for_ttft(*time_to_first_token_ms);
+                match (rate, ttft) {
+                    (Some(rate), Some(ttft)) => format!("{worked}    {rate}    {ttft}"),
+                    (Some(rate), None) => format!("{worked}    {rate}"),
+                    (None, Some(ttft)) => format!("{worked}    {ttft}"),
+                    (None, None) => worked,
                 }
             }
             SessionEvent::TurnCompleted { elapsed: None, .. } => {
@@ -417,6 +426,21 @@ fn format_token_rate_number(rate: f64) -> String {
         Some(whole) => whole.to_string(),
         None => one_decimal,
     }
+}
+
+/// Per-turn TTFT for the `Worked for` line: `TTFT 320ms` or `TTFT 1.5s`.
+/// Hidden when the value is missing. Sub-second stays in milliseconds; otherwise [`format_duration`].
+fn format_worked_for_ttft(time_to_first_token_ms: Option<u64>) -> Option<String> {
+    let ms = time_to_first_token_ms?;
+    let duration = if ms < 1000 {
+        format!("{ms}ms")
+    } else {
+        format_duration(Duration::from_millis(ms))
+    };
+    Some(xai_grok_i18n::t_fmt(
+        "TTFT {duration}",
+        &[("duration", duration.as_str())],
+    ))
 }
 
 /// Visually identical to [`super::SystemMessageBlock`] (muted text, compact, unselectable).
@@ -645,6 +669,7 @@ mod tests {
             Some(Duration::from_secs(12)),
             Some(240),
             None,
+            None,
         );
         assert_eq!(event.message(), "Worked for 12s    20 token/s");
     }
@@ -654,6 +679,7 @@ mod tests {
         let event = SessionEvent::turn_completed_with_tokens(
             Some(Duration::from_secs(10)),
             Some(204),
+            None,
             None,
         );
         assert_eq!(event.message(), "Worked for 10s    20.4 token/s");
@@ -667,7 +693,8 @@ mod tests {
 
     #[test]
     fn turn_completed_message_omits_rate_when_duration_zero() {
-        let event = SessionEvent::turn_completed_with_tokens(Some(Duration::ZERO), Some(100), None);
+        let event =
+            SessionEvent::turn_completed_with_tokens(Some(Duration::ZERO), Some(100), None, None);
         assert_eq!(event.message(), "Worked for 0.0s");
     }
 
@@ -677,8 +704,56 @@ mod tests {
             Some(Duration::from_secs(12)),
             Some(240),
             Some(3_000),
+            None,
         );
         assert_eq!(event.message(), "Worked for 12s    80 token/s");
+    }
+
+    #[test]
+    fn turn_completed_message_appends_ttft_to_the_right_of_rate() {
+        let event = SessionEvent::turn_completed_with_tokens(
+            Some(Duration::from_secs(12)),
+            Some(240),
+            None,
+            Some(320),
+        );
+        assert_eq!(
+            event.message(),
+            "Worked for 12s    20 token/s    TTFT 320ms"
+        );
+    }
+
+    #[test]
+    fn turn_completed_message_ttft_uses_format_duration_at_or_above_one_second() {
+        let event = SessionEvent::turn_completed_with_tokens(
+            Some(Duration::from_secs(12)),
+            Some(240),
+            None,
+            Some(1_500),
+        );
+        assert_eq!(event.message(), "Worked for 12s    20 token/s    TTFT 1.5s");
+    }
+
+    #[test]
+    fn turn_completed_message_shows_ttft_without_rate() {
+        let event = SessionEvent::turn_completed_with_tokens(
+            Some(Duration::from_secs(12)),
+            None,
+            None,
+            Some(320),
+        );
+        assert_eq!(event.message(), "Worked for 12s    TTFT 320ms");
+    }
+
+    #[test]
+    fn turn_completed_message_omits_ttft_when_missing() {
+        let event = SessionEvent::turn_completed_with_tokens(
+            Some(Duration::from_secs(12)),
+            Some(240),
+            None,
+            None,
+        );
+        assert_eq!(event.message(), "Worked for 12s    20 token/s");
     }
 
     #[test]
@@ -688,8 +763,9 @@ mod tests {
             Some(Duration::from_secs(12)),
             Some(240),
             None,
+            Some(320),
         );
-        assert_eq!(event.message(), "工作了 12s    20 token/秒");
+        assert_eq!(event.message(), "工作了 12s    20 token/秒    TTFT 320ms");
     }
 
     #[test]

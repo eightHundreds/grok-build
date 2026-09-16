@@ -109,6 +109,14 @@ pub struct PromptUsage {
         skip_serializing_if = "std::ops::Not::not"
     )]
     pub usage_is_incomplete: bool,
+    /// Per-turn TTFT (turn start → first token of any channel). Not a ledger total.
+    /// Stamped at turn end from `TurnPhaseProfile`; absent on older shells / no first token.
+    #[serde(
+        default,
+        rename = "timeToFirstTokenMs",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub time_to_first_token_ms: Option<u64>,
 }
 
 impl PromptUsage {
@@ -285,6 +293,7 @@ impl From<&xai_chat_state::UsageLedger> for PromptUsage {
                 .collect(),
             num_turns: ledger.main_loop_model_calls,
             usage_is_incomplete: ledger.incomplete,
+            time_to_first_token_ms: None,
         };
         usage.scrub_untrustworthy_costs();
         usage
@@ -1135,6 +1144,10 @@ pub const DISK_FULL_USER_MESSAGE: &str = "Out of disk space. Free some space and
 /// camelCase like its payload siblings (`stopReason`, `cancelTrigger`). Value: `SamplingErrorKind::as_str()`.
 /// The durable twin carries the same value in [`SessionUpdate::TurnCompleted`]'s typed `error_kind` field.
 pub const PROMPT_COMPLETE_ERROR_KIND_KEY: &str = "errorKind";
+
+/// `_meta` / `PromptUsage` key of per-turn TTFT (turn start → first token of any channel).
+/// camelCase like its payload siblings (`cancelTrigger`, `outputTokens`).
+pub const TIME_TO_FIRST_TOKEN_MS_KEY: &str = "timeToFirstTokenMs";
 
 /// `RetryState::Failed.error_type` for a context-window/size overflow.
 /// Frozen shell ↔ pager wire value — old pagers match the literal.
@@ -2438,6 +2451,7 @@ mod tests {
             model_usage: model_usage.clone(),
             num_turns: 2,
             usage_is_incomplete: false,
+            time_to_first_token_ms: None,
         };
         let mut result = serde_json::json!({});
         project_result_usage(&mut result, &partial);
@@ -2459,6 +2473,7 @@ mod tests {
             model_usage,
             num_turns: 1,
             usage_is_incomplete: true,
+            time_to_first_token_ms: None,
         };
         incomplete.scrub_untrustworthy_costs();
         assert!(incomplete.totals.cost_usd_ticks.is_none());
@@ -2518,6 +2533,7 @@ mod tests {
             model_usage: Default::default(),
             num_turns: 1,
             usage_is_incomplete: false,
+            time_to_first_token_ms: None,
         };
         usage.scrub_untrustworthy_costs();
         assert!(usage.totals.cost_usd_ticks.is_none());
@@ -2552,6 +2568,7 @@ mod tests {
             model_usage,
             num_turns: 1,
             usage_is_incomplete: false,
+            time_to_first_token_ms: None,
         };
         let mut result = serde_json::json!({});
         project_result_usage(&mut result, &usage);
@@ -2573,6 +2590,16 @@ mod tests {
         assert_eq!(result["total_cost_usd"], 0.2);
         // Exact ticks accompany the float for tick-exact reconciliation.
         assert_eq!(result["total_cost_usd_ticks"], 2_000_000_000_i64);
+    }
+
+    #[test]
+    fn time_to_first_token_ms_serializes_as_camel_case_and_skips_none() {
+        let mut usage = PromptUsage::default();
+        usage.time_to_first_token_ms = Some(320);
+        let v = serde_json::to_value(&usage).unwrap();
+        assert_eq!(v["timeToFirstTokenMs"], 320);
+        let omitted = serde_json::to_value(&PromptUsage::default()).unwrap();
+        assert!(omitted.get("timeToFirstTokenMs").is_none());
     }
 
     #[test]

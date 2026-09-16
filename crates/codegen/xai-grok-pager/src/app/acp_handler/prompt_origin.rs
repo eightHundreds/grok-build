@@ -101,6 +101,7 @@ pub(super) struct WakeTerminal<'a> {
     pub error_kind: Option<crate::app::error_display::WireErrorType>,
     pub output_tokens: Option<u64>,
     pub api_duration_ms: Option<u64>,
+    pub time_to_first_token_ms: Option<u64>,
 }
 
 /// Close out a wake turn. This is the only place that flushes its streamed entries still in flight, because wake turns skip `PromptResponse`.
@@ -115,6 +116,7 @@ pub(super) fn finish_wake_turn(agent: &mut AgentView, prompt_id: &str, terminal:
         error_kind,
         output_tokens,
         api_duration_ms,
+        time_to_first_token_ms,
     } = terminal;
 
     let had_output = agent.session.tracker.output_since_last_finish();
@@ -173,6 +175,7 @@ pub(super) fn finish_wake_turn(agent: &mut AgentView, prompt_id: &str, terminal:
                 error_banner_present: false,
                 output_tokens,
                 api_duration_ms,
+                time_to_first_token_ms,
             },
         ),
     };

@@ -469,6 +469,7 @@ pub(super) fn handle_prompt_complete(notif: &acp::ExtNotification, app: &mut App
             error_kind: payload.error_kind(),
             output_tokens: None,
             api_duration_ms: None,
+            time_to_first_token_ms: None,
         },
     );
     super::super::turn_completion::apply_terminal_outcome(outcome, app, id, is_active)

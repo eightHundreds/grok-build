@@ -1253,6 +1253,7 @@ fn base_input<'a>(stop: TurnStopReason) -> TerminalMarkerInput<'a> {
         error_banner_present: false,
         output_tokens: None,
         api_duration_ms: None,
+        time_to_first_token_ms: None,
     }
 }
 
@@ -1302,13 +1303,25 @@ fn classifier_completed_appends_token_rate() {
 }
 
 #[test]
+fn classifier_completed_appends_ttft_to_the_right_of_rate() {
+    let mut input = base_input(TurnStopReason::EndTurn);
+    input.elapsed_ms = Some(12_000);
+    input.output_tokens = Some(240);
+    input.time_to_first_token_ms = Some(320);
+    let ev = terminal_marker(input).unwrap();
+    assert_eq!(ev.message(), "Worked for 12s    20 token/s    TTFT 320ms");
+}
+
+#[test]
 fn token_stats_prefers_ledger_output_over_last_call() {
     let mut usage = xai_grok_shell::extensions::notification::PromptUsage::default();
     usage.totals.output_tokens = 240;
     usage.totals.api_duration_ms = 3_000;
+    usage.time_to_first_token_ms = Some(320);
     let stats = TokenStats::from_prompt_usage(Some(&usage), Some(1));
     assert_eq!(stats.output_tokens, Some(240));
     assert_eq!(stats.api_duration_ms, Some(3_000));
+    assert_eq!(stats.time_to_first_token_ms, Some(320));
 }
 
 #[test]
@@ -1316,6 +1329,23 @@ fn token_stats_falls_back_to_last_call_when_usage_missing() {
     let stats = TokenStats::from_prompt_usage(None, Some(12));
     assert_eq!(stats.output_tokens, Some(12));
     assert_eq!(stats.api_duration_ms, None);
+    assert_eq!(stats.time_to_first_token_ms, None);
+}
+
+#[test]
+fn token_stats_from_meta_map_reads_ttft_from_usage_and_sibling() {
+    let mut usage = xai_grok_shell::extensions::notification::PromptUsage::default();
+    usage.totals.output_tokens = 240;
+    usage.time_to_first_token_ms = Some(320);
+    let mut meta = serde_json::Map::new();
+    meta.insert("usage".into(), serde_json::to_value(&usage).unwrap());
+    let stats = TokenStats::from_meta_map(Some(&meta));
+    assert_eq!(stats.time_to_first_token_ms, Some(320));
+
+    let mut sibling = serde_json::Map::new();
+    sibling.insert("timeToFirstTokenMs".into(), serde_json::json!(150));
+    let stats = TokenStats::from_meta_map(Some(&sibling));
+    assert_eq!(stats.time_to_first_token_ms, Some(150));
 }
 
 #[test]

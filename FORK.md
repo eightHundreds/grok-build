@@ -53,6 +53,10 @@ Unset / `en` keeps English (tests stay stable). Missing keys fall back to Englis
 
 Files: `crates/codegen/xai-grok-i18n/`, `locales/zh-CN.toml`. Call sites: shortcuts bar paint, shortcuts cheatsheet display/search, command-palette title/rows/footer (English labels stay in `default_palette_entries()`), privacy banner, welcome menu / directory trust / consent chrome, login copy, settings modal labels/descriptions/categories (paint only; `settings/defs.rs` untouched), slash-dropdown descriptions (not `/home` names), remaining modal titles, extensions tabs, composer placeholders, `Tip:` prefix, toasts, permission-dialog titles/buttons, and how-to / tutorial pages (Chinese markdown picked by language; English doc tree unchanged).
 
+### Worked-for footer
+
+The turn `Worked for` line also shows output token rate and TTFT when those values are known.
+
 ## Versioning
 
 Do **not** bump the three-digit crate semver ahead of, or independently from, upstream. `crates/codegen/xai-grok-version/Cargo.toml` stays whatever the last `Synced from monorepo` snapshot shipped (currently `1.0.24`).

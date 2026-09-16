@@ -712,4 +712,5 @@
 # --- turn footer ---
 "Worked for {duration}" = "工作了 {duration}"
 "{rate} token/s" = "{rate} token/秒"
+"TTFT {duration}" = "TTFT {duration}"
 "Turn completed." = "回合已完成。"
