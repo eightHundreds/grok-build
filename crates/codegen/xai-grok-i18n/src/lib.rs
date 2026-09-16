@@ -169,6 +169,10 @@ mod tests {
             "工作了 12s"
         );
         assert_eq!(t_fmt("{rate} token/s", &[("rate", "20")]), "20 token/秒");
+        assert_eq!(
+            t_fmt("TTFT {duration}", &[("duration", "320ms")]),
+            "TTFT 320ms"
+        );
     }
 
     #[test]

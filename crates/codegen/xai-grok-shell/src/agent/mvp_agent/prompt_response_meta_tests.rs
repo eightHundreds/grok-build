@@ -111,6 +111,32 @@ fn usage_object_lands_on_meta() {
 }
 
 #[test]
+fn time_to_first_token_lands_on_usage_and_meta_sibling() {
+    let mut ledger = xai_chat_state::UsageLedger::default();
+    ledger.record_main_loop_call(
+        "m",
+        &TokenUsage {
+            prompt_tokens: 100,
+            completion_tokens: 10,
+            total_tokens: 110,
+            reasoning_tokens: 0,
+            cached_prompt_tokens: 0,
+            cache_creation_prompt_tokens: 0,
+        },
+        None,
+        None,
+    );
+    let mut usage = crate::extensions::notification::PromptUsage::from(&ledger);
+    usage.time_to_first_token_ms = Some(320);
+    let meta = build_prompt_response_meta(PromptResponseMetaArgs {
+        prompt_usage: Some(usage),
+        ..args("s", "p", 110, "m")
+    });
+    assert_eq!(meta["timeToFirstTokenMs"], 320);
+    assert_eq!(meta["usage"]["timeToFirstTokenMs"], 320);
+}
+
+#[test]
 fn cancel_trigger_lands_as_camelcase_meta_key() {
     // When send-now cancels a turn, the PromptResponse `_meta` carries `cancelTrigger: "send_now"`
     let meta = build_prompt_response_meta(PromptResponseMetaArgs {

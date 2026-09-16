@@ -150,7 +150,8 @@ fn synthesize_replay_turn_marker(
     let cancel_trigger = terminal_meta_str(meta, CANCEL_TRIGGER_KEY);
     let cancellation_category = terminal_meta_str(meta, CANCELLATION_CATEGORY_KEY);
     let paint_rate_limit_failure = chatty_rate_limit && !suppress && !banner;
-    let token_stats = crate::app::turn_completion::TokenStats::from_prompt_usage(usage, None);
+    let token_stats = crate::app::turn_completion::TokenStats::from_prompt_usage(usage, None)
+        .with_meta_ttft(meta);
     let marker = if suppress {
         None
     } else {
@@ -164,6 +165,7 @@ fn synthesize_replay_turn_marker(
             error_banner_present: banner,
             output_tokens: token_stats.output_tokens,
             api_duration_ms: token_stats.api_duration_ms,
+            time_to_first_token_ms: token_stats.time_to_first_token_ms,
         })
     };
     marker.or_else(|| {
@@ -348,7 +350,8 @@ pub(super) fn handle_session_notification_with_origin(
         } => {
             let error_kind = crate::app::error_display::wire_error_kind(error_kind.as_deref());
             let token_stats =
-                crate::app::turn_completion::TokenStats::from_prompt_usage(usage.as_ref(), None);
+                crate::app::turn_completion::TokenStats::from_prompt_usage(usage.as_ref(), None)
+                    .with_meta_ttft(session_notif.meta.as_ref());
             if agent.session.loading_replay {
                 let first = agent.replayed_terminal_prompts.insert(prompt_id.clone());
                 if first
@@ -424,6 +427,7 @@ pub(super) fn handle_session_notification_with_origin(
                             error_kind,
                             output_tokens: token_stats.output_tokens,
                             api_duration_ms: token_stats.api_duration_ms,
+                            time_to_first_token_ms: token_stats.time_to_first_token_ms,
                         },
                     );
                     true
@@ -463,6 +467,7 @@ pub(super) fn handle_session_notification_with_origin(
                             error_kind,
                             output_tokens: token_stats.output_tokens,
                             api_duration_ms: token_stats.api_duration_ms,
+                            time_to_first_token_ms: token_stats.time_to_first_token_ms,
                         },
                     ));
                 false

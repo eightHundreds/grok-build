@@ -78,13 +78,16 @@ pub(crate) struct TerminalMarkerInput<'a> {
     pub output_tokens: Option<u64>,
     /// Ledger `api_duration_ms` (generation time). Used as the token-rate denominator when `> 0`.
     pub api_duration_ms: Option<u64>,
+    /// Per-turn TTFT (turn start → first token of any channel), when reported.
+    pub time_to_first_token_ms: Option<u64>,
 }
 
-/// Output tokens and API duration from a turn's usage ledger / PromptResponse `_meta`.
+/// Output tokens, API duration, and per-turn TTFT from a turn's usage ledger / PromptResponse `_meta`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct TokenStats {
     pub output_tokens: Option<u64>,
     pub api_duration_ms: Option<u64>,
+    pub time_to_first_token_ms: Option<u64>,
 }
 
 impl TokenStats {
@@ -98,10 +101,12 @@ impl TokenStats {
                 output_tokens: Some(usage.totals.output_tokens),
                 api_duration_ms: (usage.totals.api_duration_ms > 0)
                     .then_some(usage.totals.api_duration_ms),
+                time_to_first_token_ms: usage.time_to_first_token_ms,
             },
             None => Self {
                 output_tokens: last_call_output,
                 api_duration_ms: None,
+                time_to_first_token_ms: None,
             },
         }
     }
@@ -117,8 +122,30 @@ impl TokenStats {
             .get("outputTokens")
             .or_else(|| meta.get("output_tokens"))
             .and_then(|v| v.as_u64());
-        Self::from_prompt_usage(usage.as_ref(), last_call)
+        let mut stats = Self::from_prompt_usage(usage.as_ref(), last_call);
+        if stats.time_to_first_token_ms.is_none() {
+            stats.time_to_first_token_ms = meta_map_ttft(meta);
+        }
+        stats
     }
+
+    /// Fill TTFT from a terminal envelope `_meta` when usage did not carry it.
+    pub fn with_meta_ttft(mut self, meta: Option<&serde_json::Value>) -> Self {
+        if self.time_to_first_token_ms.is_none() {
+            self.time_to_first_token_ms = meta.and_then(meta_value_ttft);
+        }
+        self
+    }
+}
+
+fn meta_map_ttft(meta: &serde_json::Map<String, serde_json::Value>) -> Option<u64> {
+    meta.get(xai_grok_shell::extensions::notification::TIME_TO_FIRST_TOKEN_MS_KEY)
+        .or_else(|| meta.get("time_to_first_token_ms"))
+        .and_then(|v| v.as_u64())
+}
+
+fn meta_value_ttft(meta: &serde_json::Value) -> Option<u64> {
+    meta.as_object().and_then(meta_map_ttft)
 }
 
 /// Saturating `Duration` to ms conversion; missing stays `None`.
@@ -144,6 +171,7 @@ pub(crate) fn terminal_marker(input: TerminalMarkerInput<'_>) -> Option<SessionE
             elapsed,
             input.output_tokens,
             input.api_duration_ms,
+            input.time_to_first_token_ms,
         )),
         TurnStopReason::Cancelled if input.send_now_cancel => None,
         TurnStopReason::Cancelled => Some(cancelled_turn_event(
@@ -398,6 +426,8 @@ pub(super) struct TerminalSignal<'a> {
     pub output_tokens: Option<u64>,
     /// Ledger `api_duration_ms` from the same usage object.
     pub api_duration_ms: Option<u64>,
+    /// Per-turn TTFT from usage / `_meta.timeToFirstTokenMs`.
+    pub time_to_first_token_ms: Option<u64>,
 }
 
 /// What applying a terminal turn signal did to one agent.
@@ -547,6 +577,7 @@ pub(super) fn finalize_turn_from_terminal(
         error_kind,
         output_tokens,
         api_duration_ms,
+        time_to_first_token_ms,
     } = signal;
     if !agent.attached_as_viewer {
         if arm_driver_turn_end_reconcile(agent, session_id, signal) {
@@ -597,6 +628,7 @@ pub(super) fn finalize_turn_from_terminal(
         ),
         output_tokens,
         api_duration_ms,
+        time_to_first_token_ms,
     });
     push_turn_terminal_marker(agent, event);
 

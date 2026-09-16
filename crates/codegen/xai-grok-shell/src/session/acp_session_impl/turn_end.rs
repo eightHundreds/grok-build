@@ -388,6 +388,19 @@ impl SessionActor {
         owned_completion
     }
 
+    /// Stamp per-turn TTFT from the turn-phase profile onto the usage object that already carries the token rate.
+    pub(super) fn stamp_prompt_usage_ttft(
+        &self,
+        usage: &mut Option<crate::extensions::notification::PromptUsage>,
+    ) {
+        let Some(ttft_ms) = self.turn_phases.complete().ttft_ms else {
+            return;
+        };
+        if let Some(usage) = usage {
+            usage.time_to_first_token_ms = Some(ttft_ms);
+        }
+    }
+
     /// Emit the durable, replayable `TurnCompleted` terminal, the single path shared by `handle_completion` and `cancel_running_task`.
     /// `(stop_reason, agent_result)` come from `prompt_complete_fields`, the same source as `prompt_complete`, so the two signals never disagree.
     /// `cancel_trigger` (when `Some`) rides the `_meta` as `cancelTrigger`; `"send_now"` marks a cancel-and-send end (marker suppressed).
@@ -395,7 +408,7 @@ impl SessionActor {
         &self,
         prompt_id: String,
         mapped: &std::result::Result<acp::StopReason, acp::Error>,
-        usage: Option<crate::extensions::notification::PromptUsage>,
+        mut usage: Option<crate::extensions::notification::PromptUsage>,
         cancel_trigger: Option<&str>,
         cancellation_category: Option<&str>,
         cancellation_context: Option<serde_json::Value>,
@@ -404,6 +417,7 @@ impl SessionActor {
     ) {
         let (stop_reason, agent_result, error_kind) =
             crate::sampling::error::prompt_complete_fields(mapped);
+        self.stamp_prompt_usage_ttft(&mut usage);
         let mut extra = serde_json::Map::new();
         if let Some(t) = cancel_trigger {
             extra.insert("cancelTrigger".to_string(), serde_json::json!(t));
@@ -413,6 +427,16 @@ impl SessionActor {
         }
         if let Some(ctx) = cancellation_context {
             extra.insert("cancellationContext".to_string(), ctx);
+        }
+        if let Some(ttft_ms) = usage
+            .as_ref()
+            .and_then(|u| u.time_to_first_token_ms)
+            .or_else(|| self.turn_phases.complete().ttft_ms)
+        {
+            extra.insert(
+                crate::extensions::notification::TIME_TO_FIRST_TOKEN_MS_KEY.to_string(),
+                serde_json::json!(ttft_ms),
+            );
         }
         let extra_meta = (!extra.is_empty()).then_some(extra);
         self.send_xai_notification_with_extra_meta(
