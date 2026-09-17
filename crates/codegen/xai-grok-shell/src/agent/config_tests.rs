@@ -7561,6 +7561,98 @@ fn per_model_extra_headers_override_global_case_insensitively() {
     );
 }
 #[test]
+fn extra_body_parses_nested_tables_and_arrays() {
+    let (_, models) = resolve_models_from_toml(
+        r#"
+            [model.codex]
+            model = "gpt-5.1-codex"
+            base_url = "https://new-api.example/v1"
+            api_backend = "chat_completions"
+            context_window = 200000
+
+            [model.codex.extra_body]
+            enable_thinking = true
+            tags = ["codex", "via-new-api"]
+
+            [model.codex.extra_body.custom_params]
+            foo = "bar"
+            n = 1
+            "#,
+        None,
+    );
+    let model = models.get("codex").expect("custom model should exist");
+    assert_eq!(
+        model.info.extra_body.get("enable_thinking"),
+        Some(&serde_json::json!(true))
+    );
+    assert_eq!(
+        model.info.extra_body.get("tags"),
+        Some(&serde_json::json!(["codex", "via-new-api"]))
+    );
+    assert_eq!(
+        model.info.extra_body.get("custom_params"),
+        Some(&serde_json::json!({"foo": "bar", "n": 1}))
+    );
+    let sampling = resolve_sampling(model, None);
+    assert_eq!(
+        sampling.extra_body.get("enable_thinking"),
+        Some(&serde_json::json!(true)),
+        "sampling_config_for_model must copy extra_body onto the sampler"
+    );
+    assert_eq!(
+        sampling.extra_body.get("custom_params"),
+        Some(&serde_json::json!({"foo": "bar", "n": 1}))
+    );
+}
+#[test]
+fn global_extra_body_applies_to_model_without_override() {
+    let dm = crate::models::default_model();
+    let (_, models) = resolve_models_from_toml(
+        r#"
+            [models]
+            extra_body = { provider_tag = "global-default", cache = true }
+            "#,
+        None,
+    );
+    let model = models.get(dm).expect("default model should exist");
+    assert_eq!(
+        model.info.extra_body.get("provider_tag"),
+        Some(&serde_json::json!("global-default")),
+        "global [models].extra_body must apply to a model with no per-model override"
+    );
+    assert_eq!(
+        model.info.extra_body.get("cache"),
+        Some(&serde_json::json!(true))
+    );
+}
+#[test]
+fn per_model_extra_body_overrides_global_per_key() {
+    let dm = crate::models::default_model();
+    let (_, models) = resolve_models_from_toml(
+        &format!(
+            r#"
+                [models]
+                extra_body = {{ provider_tag = "global-default", cache = true }}
+
+                [model."{dm}"]
+                extra_body = {{ provider_tag = "per-model-wins" }}
+                "#,
+        ),
+        None,
+    );
+    let model = models.get(dm).expect("default model should exist");
+    assert_eq!(
+        model.info.extra_body.get("provider_tag"),
+        Some(&serde_json::json!("per-model-wins")),
+        "per-model extra_body must override the global value for that key"
+    );
+    assert_eq!(
+        model.info.extra_body.get("cache"),
+        Some(&serde_json::json!(true)),
+        "a global-only extra_body key must still be inherited when a model overrides a different key"
+    );
+}
+#[test]
 fn global_extra_headers_apply_to_prefetched_model() {
     let mut cfg = Config::default();
     cfg.models.extra_headers.insert(

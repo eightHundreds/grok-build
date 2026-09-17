@@ -19,6 +19,7 @@ pub mod config;
 pub mod doom_loop;
 mod doom_loop_recovery;
 pub mod events;
+mod extra_body;
 pub mod handle;
 pub mod metrics;
 mod prewarm;

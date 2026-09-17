@@ -71,6 +71,7 @@ impl SessionActor {
                 extra_headers: sampling_config.extra_headers.clone(),
                 conversation_group_id: sampling_config.conversation_group_id.clone(),
                 query_params: sampling_config.query_params.clone(),
+                extra_body: sampling_config.extra_body.clone(),
                 env_http_headers: sampling_config.env_http_headers.clone(),
                 context_window: new_context_window,
                 reasoning_effort: sampling_config.reasoning_effort,

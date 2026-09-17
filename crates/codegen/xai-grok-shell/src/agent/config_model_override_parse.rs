@@ -733,6 +733,12 @@ mod tests {
             extra_headers: [("x-team".to_owned(), "codegen".to_owned())]
                 .into_iter()
                 .collect(),
+            extra_body: [
+                ("enable_thinking".to_owned(), serde_json::json!(true)),
+                ("provider_tag".to_owned(), serde_json::json!("codex")),
+            ]
+            .into_iter()
+            .collect(),
             query_params: [("api-version".to_owned(), "2026-07-22".to_owned())]
                 .into_iter()
                 .collect(),

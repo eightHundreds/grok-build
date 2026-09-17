@@ -37,6 +37,7 @@ use xai_grok_sampling_types::{
 
 use crate::config::{AuthScheme, OriginClientInfo, RequestCompression, SamplerConfig};
 use crate::events::SamplingErrorInfo;
+use crate::extra_body::apply_extra_body;
 use crate::request_compression::{compress_body, should_compress};
 use crate::span_timing::{ERROR, STATUS_CODE, SUCCESS, StreamSpanTiming};
 use crate::stream_classify::{chat_chunk_class, message_event_class, responses_event_class};
@@ -349,6 +350,7 @@ struct ClientDefaults {
     stream_tool_calls: bool,
     reasoning_summary: Option<xai_grok_sampling_types::ReasoningSummary>,
     extra_response_includes: Vec<String>,
+    extra_body: IndexMap<String, serde_json::Value>,
     doom_loop_recovery: Option<xai_grok_sampling_types::DoomLoopRecoveryPolicy>,
 }
 
@@ -656,6 +658,7 @@ impl SamplingClient {
             stream_tool_calls: config.stream_tool_calls,
             reasoning_summary: config.reasoning_summary,
             extra_response_includes: config.extra_response_includes,
+            extra_body: config.extra_body,
             doom_loop_recovery: config.doom_loop_recovery,
         };
 
@@ -978,10 +981,22 @@ impl SamplingClient {
         builder: reqwest::RequestBuilder,
         payload: &T,
     ) -> Result<reqwest::Request> {
-        let json = serde_json::to_vec(payload).map_err(|e| {
-            tracing::error!("Failed to serialize request body: {}", e);
-            SamplingError::Serialization(e)
-        })?;
+        let json = if self.defaults.extra_body.is_empty() {
+            serde_json::to_vec(payload).map_err(|e| {
+                tracing::error!("Failed to serialize request body: {}", e);
+                SamplingError::Serialization(e)
+            })?
+        } else {
+            let mut value = serde_json::to_value(payload).map_err(|e| {
+                tracing::error!("Failed to serialize request body: {}", e);
+                SamplingError::Serialization(e)
+            })?;
+            apply_extra_body(&mut value, &self.defaults.extra_body);
+            serde_json::to_vec(&value).map_err(|e| {
+                tracing::error!("Failed to serialize request body: {}", e);
+                SamplingError::Serialization(e)
+            })?
+        };
         let mut request = builder.build().map_err(|e| {
             tracing::error!("Failed to build HTTP request: {}", e);
             SamplingError::Http(e)

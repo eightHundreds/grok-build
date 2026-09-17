@@ -1005,6 +1005,10 @@ pub struct ModelsConfig {
     /// A per-model `[model.<id>].extra_headers` entry overrides per key (case-insensitive).
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub extra_headers: IndexMap<String, String>,
+    /// Global default JSON fields merged into every model's inference request body.
+    /// A per-model `[model.<id>].extra_body` entry overrides per top-level key.
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub extra_body: IndexMap<String, serde_json::Value>,
     /// Global default values applied to every model that leaves the field unset; a per-model `[model.<id>]` value always wins.
     /// A deliberately small, allow-listed subset of the per-model fields (only `Option` ones, so "unset" is unambiguous).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -3459,6 +3463,7 @@ pub(crate) fn resolve_model_list(
         }
     }
     apply_global_extra_headers(&mut resolved, &cfg.models);
+    apply_global_extra_body(&mut resolved, &cfg.models);
     apply_global_scalar_defaults(&mut resolved, &cfg.models);
     for entry in resolved.values_mut() {
         entry.info.derive_reasoning_effort_fields();
@@ -3485,6 +3490,25 @@ fn apply_global_extra_headers(resolved: &mut IndexMap<String, ModelEntry>, model
                 .any(|ek| ek.eq_ignore_ascii_case(k));
             if !present {
                 entry.info.extra_headers.insert(k.clone(), v.clone());
+            }
+        }
+    }
+}
+/// Layer 6b of [`resolve_model_list`]: fold the global `[models].extra_body` into every model as a base.
+/// A per-model `[model.<id>].extra_body` (applied earlier) wins per top-level key.
+fn apply_global_extra_body(resolved: &mut IndexMap<String, ModelEntry>, models: &ModelsConfig) {
+    if models.extra_body.is_empty() {
+        return;
+    }
+    tracing::debug!(
+        body_keys = ?models.extra_body.keys().collect::<Vec<_>>(),
+        model_count = resolved.len(),
+        "applying global [models].extra_body default to all models"
+    );
+    for entry in resolved.values_mut() {
+        for (k, v) in &models.extra_body {
+            if !entry.info.extra_body.contains_key(k) {
+                entry.info.extra_body.insert(k.clone(), v.clone());
             }
         }
     }
@@ -3845,7 +3869,7 @@ fn is_default_laziness_detector(cfg: &LazinessDetectorPerModelConfig) -> bool {
 }
 /// A `[model.foo]` entry from config.toml, parsed directly from raw TOML (bypassing deep merge).
 /// Scalar fields are `Option` so absent means "inherit from defaults/prefetched".
-/// The collection fields (`extra_headers`, `reasoning_efforts`) merge only when non-empty and so cannot express "override to empty."
+/// The collection fields (`extra_headers`, `extra_body`, `reasoning_efforts`) merge only when non-empty and so cannot express "override to empty."
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct ConfigModelOverride {
@@ -3871,6 +3895,8 @@ pub struct ConfigModelOverride {
     pub api_backend: Option<ApiBackend>,
     #[serde(default)]
     pub extra_headers: IndexMap<String, String>,
+    #[serde(default)]
+    pub extra_body: IndexMap<String, serde_json::Value>,
     #[serde(default)]
     pub query_params: IndexMap<String, String>,
     #[serde(default)]
@@ -3945,6 +3971,9 @@ impl ConfigModelOverride {
         }
         if !self.extra_headers.is_empty() {
             entry.info.extra_headers = self.extra_headers.clone();
+        }
+        if !self.extra_body.is_empty() {
+            entry.info.extra_body = self.extra_body.clone();
         }
         if !self.query_params.is_empty() {
             entry.info.query_params = self.query_params.clone();
@@ -4055,6 +4084,8 @@ pub struct ModelInfo {
     pub auth_scheme: AuthScheme,
     pub extra_headers: IndexMap<String, String>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub extra_body: IndexMap<String, serde_json::Value>,
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub query_params: IndexMap<String, String>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub env_http_headers: IndexMap<String, String>,
@@ -4137,6 +4168,7 @@ impl ModelInfo {
             api_backend: ApiBackend::default(),
             auth_scheme: Default::default(),
             extra_headers: IndexMap::new(),
+            extra_body: IndexMap::new(),
             query_params: IndexMap::new(),
             env_http_headers: IndexMap::new(),
             context_window: NonZeroU64::new(200_000).unwrap(),
@@ -4178,6 +4210,7 @@ impl ModelInfo {
             api_backend: entry.api_backend.clone(),
             auth_scheme: entry.auth_scheme.unwrap_or_default(),
             extra_headers: entry.extra_headers.clone(),
+            extra_body: IndexMap::new(),
             query_params: IndexMap::new(),
             env_http_headers: IndexMap::new(),
             context_window: entry.context_window,
@@ -4875,6 +4908,7 @@ pub(crate) fn resolve_aux_model_sampling_config(
                 api_backend: ApiBackend::Responses,
                 auth_scheme: Default::default(),
                 extra_headers: IndexMap::new(),
+                extra_body: IndexMap::new(),
                 query_params: IndexMap::new(),
                 env_http_headers: IndexMap::new(),
                 context_window: NonZeroU64::new(200_000).unwrap(),
@@ -5034,6 +5068,7 @@ pub(crate) fn sampling_config_for_model(
         extra_headers,
         extra_response_includes,
         query_params: info.query_params.clone(),
+        extra_body: info.extra_body.clone(),
         env_http_headers: info.env_http_headers.clone(),
         context_window: info.context_window.get(),
         client_version,
@@ -5101,6 +5136,7 @@ fn resolve_hidden_default_web_search_sampling_config(
             api_backend: ApiBackend::Responses,
             auth_scheme: Default::default(),
             extra_headers: IndexMap::new(),
+            extra_body: IndexMap::new(),
             query_params: IndexMap::new(),
             env_http_headers: IndexMap::new(),
             context_window: NonZeroU64::new(200_000).unwrap(),

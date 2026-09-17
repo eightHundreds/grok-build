@@ -57,6 +57,10 @@ Files: `crates/codegen/xai-grok-i18n/`, `locales/zh-CN.toml`. Call sites: shortc
 
 The turn `Worked for` line also shows output token rate and TTFT when those values are known.
 
+### Custom request body fields
+
+`[models].extra_body` / `[model.<id>].extra_body` inject extra JSON fields into inference request bodies (per-key merge; model wins; reserved fields such as `model` / `messages` / `input` / `tools` / `stream` are not overwritten).
+
 ## Versioning
 
 Do **not** bump the three-digit crate semver ahead of, or independently from, upstream. `crates/codegen/xai-grok-version/Cargo.toml` stays whatever the last `Synced from monorepo` snapshot shipped (currently `1.0.32`).

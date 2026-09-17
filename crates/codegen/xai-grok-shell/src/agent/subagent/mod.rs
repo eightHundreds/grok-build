@@ -785,6 +785,7 @@ async fn read_parent_sampling_config(
                 extra_response_includes,
                 conversation_group_id: cfg.conversation_group_id,
                 query_params: cfg.query_params.clone(),
+                extra_body: cfg.extra_body.clone(),
                 env_http_headers: cfg.env_http_headers.clone(),
                 context_window: cfg.context_window.get(),
                 client_version: creds.client_version,

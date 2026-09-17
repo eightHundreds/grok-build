@@ -101,6 +101,7 @@ context_window = 128000                   # 总上下文窗口（token）
 extra_headers = { "x-api-key" = "sk-..." } # 额外请求头，原样发送（可选）
 query_params = { api-version = "2026-07-22" } # 追加到每个请求 URL 的查询参数（可选）
 env_http_headers = { "X-Tenant" = "TENANT_TOKEN" }    # 来自环境变量的头，在构建客户端时解析（可选）
+extra_body = { enable_thinking = true }               # 合并进推理请求 JSON body 的额外字段（可选）
 ```
 
 ### 凭据解析
@@ -177,7 +178,34 @@ env_http_headers = { "X-Tenant-Token" = "GATEWAY_TENANT_TOKEN" }
 
 Grok 在为会话构建客户端时读取每个变量，并且只把值放进请求头，从不落盘。变量未设置或为空时跳过该头；解析出的值会覆盖同名的 `extra_headers` 条目。静态值用 `extra_headers`，来自环境的用 `env_http_headers`。
 
-这两个字段也适用于共享的 `[model_providers.<id>]` 块。用 `model_provider = "<id>"` 指向提供商的模型，在自己未设置时继承提供商的 `query_params` 和 `env_http_headers`，与 `extra_headers` 的继承方式相同。
+这两个字段也适用于共享的 `[model_providers.<id>]` 块。用 `model_provider = "<id>"` 指向提供商的模型，在自己未设置时继承提供商的 `query_params`、`env_http_headers` 和 `extra_body`，与 `extra_headers` 的继承方式相同。
+
+### 自定义请求体字段
+
+有些第三方网关（例如把 Codex 转成 OpenAI 兼容协议的 new-api）要求在推理请求 JSON body 里带上额外字段。`extra_body` 会把这些键合并进发往 `chat_completions` / `responses` / `messages` 的请求体——不是请求头，也不是查询字符串。
+
+```toml
+[models]
+extra_body = { provider_tag = "global-default" }
+
+[model.codex]
+model = "gpt-5.1-codex"
+base_url = "https://new-api.example/v1"
+api_backend = "chat_completions"
+env_key = "NEW_API_KEY"
+
+[model.codex.extra_body]
+enable_thinking = true
+tags = ["codex", "via-new-api"]
+
+[model.codex.extra_body.custom_params]
+foo = "bar"
+n = 1
+```
+
+按模型的 `[model.<id>].extra_body` **按顶层键**覆盖全局 `[models].extra_body`：模型上设置的键胜出，仅全局有的键仍由该模型继承。允许嵌套表和数组。只有请求里尚不存在的键才会被插入；保留字段（`model`、`messages`、`input`、`tools`、`stream`、`stream_options`）会被跳过，因此 `extra_body` 不能替换对话或工具载荷。
+
+与 `extra_headers` 一样，这些字段只挂在该模型的推理调用上。模型只要自己设置了任何 `extra_body`，就不会整表继承提供商的值。
 
 ---
 

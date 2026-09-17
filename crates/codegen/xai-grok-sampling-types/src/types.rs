@@ -1099,6 +1099,9 @@ pub struct SamplingConfig {
     /// Query parameters folded into every request URL (percent-encoded).
     #[serde(default, skip_serializing_if = "indexmap::IndexMap::is_empty")]
     pub query_params: indexmap::IndexMap<String, String>,
+    /// Extra JSON fields merged into the inference request body (top-level keys only).
+    #[serde(default, skip_serializing_if = "indexmap::IndexMap::is_empty")]
+    pub extra_body: indexmap::IndexMap<String, serde_json::Value>,
     /// Header name to environment variable; only the mapping persists, not the resolved secret.
     #[serde(default, skip_serializing_if = "indexmap::IndexMap::is_empty")]
     pub env_http_headers: indexmap::IndexMap<String, String>,
@@ -1132,6 +1135,7 @@ impl Default for SamplingConfig {
             extra_headers: indexmap::IndexMap::new(),
             conversation_group_id: None,
             query_params: indexmap::IndexMap::new(),
+            extra_body: indexmap::IndexMap::new(),
             env_http_headers: indexmap::IndexMap::new(),
             context_window: NonZeroU64::MIN,
             reasoning_effort: None,

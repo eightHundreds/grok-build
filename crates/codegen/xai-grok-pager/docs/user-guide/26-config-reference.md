@@ -377,6 +377,7 @@ User-level configuration lives in `$GROK_HOME/config.toml` (default `~/.grok/con
 | `model.<id>.description` | `string` | `yes` | `user` | Optional description shown in the picker. |
 | `model.<id>.env_http_headers` | `map<string,string>` | `yes` | `user` | HTTP headers populated from environment variables when set. |
 | `model.<id>.env_key` | `string / string[]` | `yes` | `user` | Environment variable name(s) holding the provider API key. |
+| `model.<id>.extra_body` | `table` | `yes` | `user` | Extra JSON fields merged into this model's inference request body. Nested tables/arrays allowed. Reserved keys (`model`, `messages`, `input`, `tools`, `stream`, …) are skipped. |
 | `model.<id>.extra_headers` | `map<string,string>` | `yes` | `user` | Per-request headers for this model. |
 | `model.<id>.hidden` | `boolean` | `yes` | `user` | Hide this model from the picker. Still usable via `-m`. |
 | `model.<id>.inference_idle_timeout_secs` | `number` | `yes` | `user` | Idle timeout for streaming inference on this model. |
@@ -418,6 +419,7 @@ User-level configuration lives in `$GROK_HOME/config.toml` (default `~/.grok/con
 | `models.default` | `string` | `pin` | `user` | Model used for new sessions. Also `GROK_DEFAULT_MODEL`, `--model`, `-m`. |
 | `models.default_reasoning_effort` | `string` | `yes` | `user` | Default reasoning effort for the default model when the model supports it. |
 | `models.disabled_models` | `string[]` | `yes` | `user` | Remove these model IDs from the catalog. Wins over `hidden_models`. |
+| `models.extra_body` | `table` | `yes` | `user` | Extra JSON body fields applied to every model; per-model top-level keys win. |
 | `models.extra_headers` | `map<string,string>` | `yes` | `user` | Request headers applied to every model; per-model keys win. |
 | `models.hidden_models` | `string[]` | `yes` | `user` | Hide these model IDs from the picker; `-m` can still select them. |
 | `models.image_description` | `string` | `yes` | `user` | Vision model used to transcribe user-supplied images. |
