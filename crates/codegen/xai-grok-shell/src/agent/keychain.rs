@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 /// Default OS keychain service. Keep `security add-generic-password -s` in sync.
 /// Users can override with `keychain_service` but are not recommended to.
-pub const DEFAULT_KEYCHAIN_SERVICE: &str = "grok";
+pub(crate) const DEFAULT_KEYCHAIN_SERVICE: &str = "grok";
 
 /// Keychain item locator from `[model.<id>] keychain_account` (and optional `keychain_service`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
