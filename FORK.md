@@ -63,7 +63,7 @@ The turn `Worked for` line also shows output token rate and TTFT when those valu
 
 ### OS keychain API keys
 
-`[model.<id>] keychain_service` / `keychain_account` load the API key from the OS keychain (macOS Keychain and Windows Credential Manager; Linux fails closed without libdbus).
+`[model.<id>] keychain_account` loads the API key from the OS keychain (service defaults to `grok`; `keychain_service` is optional and not recommended to change). macOS Keychain and Windows Credential Manager; Linux fails closed without libdbus.
 
 ## Versioning
 

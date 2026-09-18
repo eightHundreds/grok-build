@@ -1480,7 +1480,7 @@ fn resolve_credentials_empty_api_key_falls_through_to_session() {
     assert_eq!(creds.api_key.as_deref(), Some("session-jwt"));
 }
 #[test]
-fn config_toml_keychain_fields_parse() {
+fn config_toml_keychain_account_only_uses_default_service() {
     let dm = crate::models::default_model();
     let (_, models) = resolve_models_from_toml(
         &format!(
@@ -1488,7 +1488,6 @@ fn config_toml_keychain_fields_parse() {
             [model."{dm}"]
             model = "{dm}"
             base_url = "https://new-api.example/v1"
-            keychain_service = "grok"
             keychain_account = "new-api"
             "#,
         ),
@@ -1498,13 +1497,37 @@ fn config_toml_keychain_fields_parse() {
     assert_eq!(
         model.keychain,
         Some(KeychainRef {
-            service: "grok".into(),
+            service: crate::agent::keychain::DEFAULT_KEYCHAIN_SERVICE.into(),
             account: "new-api".into(),
         })
     );
 }
 #[test]
-fn config_toml_incomplete_keychain_pair_is_inert() {
+fn config_toml_explicit_keychain_service_wins() {
+    let dm = crate::models::default_model();
+    let (_, models) = resolve_models_from_toml(
+        &format!(
+            r#"
+            [model."{dm}"]
+            model = "{dm}"
+            base_url = "https://new-api.example/v1"
+            keychain_service = "custom-svc"
+            keychain_account = "new-api"
+            "#,
+        ),
+        None,
+    );
+    let model = models.get(dm).expect("model should exist");
+    assert_eq!(
+        model.keychain,
+        Some(KeychainRef {
+            service: "custom-svc".into(),
+            account: "new-api".into(),
+        })
+    );
+}
+#[test]
+fn config_toml_keychain_service_only_is_inert_without_warning() {
     let dm = crate::models::default_model();
     let (cfg, models) = resolve_models_from_toml(
         &format!(
@@ -1520,11 +1543,10 @@ fn config_toml_incomplete_keychain_pair_is_inert() {
     let model = models.get(dm).expect("model should exist");
     assert_eq!(model.keychain, None);
     assert!(
-        cfg.config_warnings.iter().any(|w| {
-            w.kind == crate::agent::config_model_override_parse::ConfigWarningKind::InvalidValue
-                && w.field() == Some("keychain_account")
+        !cfg.config_warnings.iter().any(|w| {
+            w.field() == Some("keychain_account") || w.field() == Some("keychain_service")
         }),
-        "incomplete pair must warn: {:?}",
+        "service without account is inert, not a required-pair warning: {:?}",
         cfg.config_warnings
     );
 }
@@ -1534,11 +1556,33 @@ fn resolve_credentials_keychain_wins_over_session() {
     use xai_chat_state::AuthType;
     let _kc = override_keychain_lookup(fake_keychain);
     let mut model = test_model_entry("m", "https://new-api.example/v1", None, None, None);
-    model.keychain = KeychainRef::from_parts(Some("grok"), Some("new-api"));
+    model.keychain = KeychainRef::from_parts(None, Some("new-api"));
+    assert_eq!(
+        model.keychain.as_ref().map(|k| k.service.as_str()),
+        Some(crate::agent::keychain::DEFAULT_KEYCHAIN_SERVICE)
+    );
     assert!(model.has_own_credentials());
     let creds = resolve_credentials(&model, Some("session-jwt"));
     assert_eq!(creds.auth_type, AuthType::ApiKey);
     assert_eq!(creds.api_key.as_deref(), Some("from-keychain"));
+}
+#[test]
+fn resolve_credentials_explicit_keychain_service_wins() {
+    use crate::agent::keychain::override_keychain_lookup;
+    use xai_chat_state::AuthType;
+    fn fake(service: &str, account: &str) -> Option<String> {
+        match (service, account) {
+            ("custom-svc", "new-api") => Some("from-custom-service".into()),
+            ("grok", "new-api") => Some("from-default-service".into()),
+            _ => None,
+        }
+    }
+    let _kc = override_keychain_lookup(fake);
+    let mut model = test_model_entry("m", "https://new-api.example/v1", None, None, None);
+    model.keychain = KeychainRef::from_parts(Some("custom-svc"), Some("new-api"));
+    let creds = resolve_credentials(&model, Some("session-jwt"));
+    assert_eq!(creds.auth_type, AuthType::ApiKey);
+    assert_eq!(creds.api_key.as_deref(), Some("from-custom-service"));
 }
 #[test]
 fn resolve_credentials_missing_keychain_falls_through_like_empty_env() {

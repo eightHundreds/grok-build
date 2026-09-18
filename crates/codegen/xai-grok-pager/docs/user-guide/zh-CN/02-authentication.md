@@ -264,7 +264,7 @@ Grok 会自动拾取 `~/.grok/auth.json` 的变更。若你在外部更新凭据
 
 Grok 按以下顺序解析每次请求的凭据，从高到低：
 
-1. **按模型的 `api_key`、`env_key` 或钥匙串** —— 在 `config.toml` 的 `[model.<name>]` 下设置。非空 `api_key` 优先，然后是第一个已设置的 `env_key`，再然后是系统钥匙串项（`keychain_service` + `keychain_account`）。钥匙串里没有该项，等同于环境变量未设置：该来源不产生密钥（不会用空凭据去发请求）。
+1. **按模型的 `api_key`、`env_key` 或钥匙串** —— 在 `config.toml` 的 `[model.<name>]` 下设置。非空 `api_key` 优先，然后是第一个已设置的 `env_key`，再然后是系统钥匙串项（`keychain_account`，service 默认为 `grok`）。钥匙串里没有该项，等同于环境变量未设置：该来源不产生密钥（不会用空凭据去发请求）。
 2. **活动会话 token** —— 通过浏览器、OIDC/OAuth2 或外部提供方登录获得，并存在 `~/.grok/auth.json`。
 3. **`XAI_API_KEY`** —— 没有活动会话 token 时的回退。
 
@@ -276,11 +276,10 @@ Grok 按以下顺序解析每次请求的凭据，从高到低：
 # ~/.grok/config.toml
 [model.codex]
 base_url = "https://new-api.example/v1"
-keychain_service = "grok"
 keychain_account = "new-api"
 ```
 
-在 macOS 上写入：
+在 macOS 上写入。`-s grok` 必须与默认 service 一致；`-a` 是 `keychain_account`：
 
 ```bash
 security add-generic-password -a "new-api" -s "grok" -w
@@ -288,9 +287,9 @@ security add-generic-password -a "new-api" -s "grok" -w
 security add-generic-password -a "new-api" -s "grok" -w "sk-..."
 ```
 
-`-s` 对应 `keychain_service`，`-a` 对应 `keychain_account`。Windows 上创建目标/服务名为 `grok`、用户名为 `new-api` 的泛型凭据。本构建未链接 Linux Secret Service（需要 libdbus）；在 Linux 上配置钥匙串对不会得到密钥，等同于未设置的 `env_key`。
+`keychain_service` 可选，默认是 `grok`，不建议改。如果改了，`-s` 必须与覆盖值一致。Windows 上创建目标/服务名为 `grok`、用户名为 `new-api` 的泛型凭据。本构建未链接 Linux Secret Service（需要 libdbus）；在 Linux 上配置钥匙串 account 不会得到密钥，等同于未设置的 `env_key`。
 
-两个字段必须都设置。项缺失或为空时，Grok 把该模型视为没有钥匙串凭据（与未设置的 `env_key` 相同），并继续往后回退。只有 `api_key` / `env_key` / 钥匙串都解析不到时，具名的 `[auth_provider.<name>]` 助手才会运行。
+项缺失或为空时，Grok 把该模型视为没有钥匙串凭据（与未设置的 `env_key` 相同），并继续往后回退。只有 `api_key` / `env_key` / 钥匙串都解析不到时，具名的 `[auth_provider.<name>]` 助手才会运行。
 
 配置了多种登录流程时，Grok 按从高到低的第一个可用来源填充会话 token：
 

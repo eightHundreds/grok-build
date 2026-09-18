@@ -306,16 +306,6 @@ fn parse_model_override_table(
         }
     };
 
-    if entry.keychain_pair_incomplete() {
-        warnings.push(ConfigWarning::model(
-            model_key,
-            Some("keychain_account"),
-            ConfigWarningKind::InvalidValue,
-            "keychain_service and keychain_account must both be set; ignoring the incomplete pair"
-                .to_owned(),
-        ));
-    }
-
     if entry.auth_provider.is_some() {
         // A non-empty `api_key` always shadows; `env_key` / keychain only shadow when they resolve at runtime
         let has_static_api_key = entry
@@ -876,12 +866,8 @@ mod tests {
         let (_, warnings) = parse_single_entry(entry);
         assert_eq!(warnings, Vec::new());
 
-        // A complete keychain pair is a conditional shadow, like env_key.
+        // keychain_account alone is a conditional shadow, like env_key.
         let mut entry = toml::map::Map::new();
-        entry.insert(
-            "keychain_service".to_owned(),
-            toml::Value::String("grok".into()),
-        );
         entry.insert(
             "keychain_account".to_owned(),
             toml::Value::String("new-api".into()),

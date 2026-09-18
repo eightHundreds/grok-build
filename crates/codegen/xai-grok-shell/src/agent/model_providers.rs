@@ -415,7 +415,6 @@ mod tests {
             [model_providers.gateway]
             base_url = "https://gateway.example/v1"
             context_window = 200000
-            keychain_service = "grok"
             keychain_account = "gateway"
 
             [model.via-gateway]

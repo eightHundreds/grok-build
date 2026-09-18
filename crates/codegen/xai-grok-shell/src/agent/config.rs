@@ -3887,11 +3887,11 @@ pub struct ConfigModelOverride {
     pub api_key: Option<String>,
     /// Env var name(s) for the provider key: string or array in config.toml.
     pub env_key: Option<EnvKeys>,
-    /// OS keychain service (macOS Keychain / Secret Service / Credential Manager).
-    /// Both `keychain_service` and `keychain_account` must be non-empty to resolve.
+    /// OS keychain service override. Defaults to [`crate::agent::keychain::DEFAULT_KEYCHAIN_SERVICE`].
+    /// Optional; changing it is not recommended.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keychain_service: Option<String>,
-    /// OS keychain account / username for [`Self::keychain_service`].
+    /// OS keychain account / username. Enough on its own to look up the item.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keychain_account: Option<String>,
     /// Name of a `[auth_provider.<name>]` credential helper that mints this model's bearer token.
@@ -3939,27 +3939,13 @@ pub struct ConfigModelOverride {
     pub reasoning_summary: Option<ReasoningSummary>,
 }
 impl ConfigModelOverride {
-    /// Combined keychain locator when both service and account are non-empty.
+    /// Combined keychain locator when `keychain_account` is non-empty.
+    /// `keychain_service` defaults to [`crate::agent::keychain::DEFAULT_KEYCHAIN_SERVICE`].
     pub(crate) fn keychain_ref(&self) -> Option<KeychainRef> {
         KeychainRef::from_parts(
             self.keychain_service.as_deref(),
             self.keychain_account.as_deref(),
         )
-    }
-
-    /// One of the pair is set and the other is not — inert at resolve time.
-    pub(crate) fn keychain_pair_incomplete(&self) -> bool {
-        let service = self
-            .keychain_service
-            .as_deref()
-            .map(str::trim)
-            .is_some_and(|s| !s.is_empty());
-        let account = self
-            .keychain_account
-            .as_deref()
-            .map(str::trim)
-            .is_some_and(|s| !s.is_empty());
-        service != account
     }
 
     pub(crate) fn apply(

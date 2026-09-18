@@ -8,7 +8,11 @@ use std::cell::RefCell;
 
 use serde::{Deserialize, Serialize};
 
-/// Keychain item locator from `[model.<id>] keychain_service` / `keychain_account`.
+/// Default OS keychain service. Keep `security add-generic-password -s` in sync.
+/// Users can override with `keychain_service` but are not recommended to.
+pub const DEFAULT_KEYCHAIN_SERVICE: &str = "grok";
+
+/// Keychain item locator from `[model.<id>] keychain_account` (and optional `keychain_service`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeychainRef {
     pub service: String,
@@ -16,10 +20,14 @@ pub struct KeychainRef {
 }
 
 impl KeychainRef {
-    /// Both sides must be non-empty after trim; otherwise the pair is inert.
+    /// `keychain_account` must be non-empty after trim. `keychain_service` defaults to
+    /// [`DEFAULT_KEYCHAIN_SERVICE`] when unset or blank.
     pub(crate) fn from_parts(service: Option<&str>, account: Option<&str>) -> Option<Self> {
-        let service = service.map(str::trim).filter(|s| !s.is_empty())?;
         let account = account.map(str::trim).filter(|s| !s.is_empty())?;
+        let service = service
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(DEFAULT_KEYCHAIN_SERVICE);
         Some(Self {
             service: service.to_owned(),
             account: account.to_owned(),
@@ -120,15 +128,32 @@ mod tests {
     }
 
     #[test]
-    fn from_parts_requires_both_nonempty() {
-        assert!(KeychainRef::from_parts(None, Some("acct")).is_none());
-        assert!(KeychainRef::from_parts(Some("svc"), None).is_none());
-        assert!(KeychainRef::from_parts(Some("  "), Some("acct")).is_none());
-        assert!(KeychainRef::from_parts(Some("svc"), Some("  ")).is_none());
+    fn from_parts_account_only_uses_default_service() {
         assert_eq!(
-            KeychainRef::from_parts(Some(" grok "), Some(" new-api ")),
+            KeychainRef::from_parts(None, Some("acct")),
             Some(KeychainRef {
-                service: "grok".into(),
+                service: DEFAULT_KEYCHAIN_SERVICE.into(),
+                account: "acct".into(),
+            })
+        );
+        assert_eq!(
+            KeychainRef::from_parts(Some("  "), Some("acct")),
+            Some(KeychainRef {
+                service: DEFAULT_KEYCHAIN_SERVICE.into(),
+                account: "acct".into(),
+            })
+        );
+        assert!(KeychainRef::from_parts(Some("svc"), None).is_none());
+        assert!(KeychainRef::from_parts(Some("svc"), Some("  ")).is_none());
+        assert!(KeychainRef::from_parts(None, None).is_none());
+    }
+
+    #[test]
+    fn from_parts_explicit_service_wins() {
+        assert_eq!(
+            KeychainRef::from_parts(Some(" custom "), Some(" new-api ")),
+            Some(KeychainRef {
+                service: "custom".into(),
                 account: "new-api".into(),
             })
         );

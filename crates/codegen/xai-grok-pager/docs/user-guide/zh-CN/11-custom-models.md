@@ -93,8 +93,7 @@ name = "Display Name"                     # 显示在模型选择器中
 description = "Model description"          # 可选描述
 api_key = "sk-..."                        # 该提供商的 API 密钥（可选）
 env_key = "XAI_API_KEY"                   # 存放 API 密钥的环境变量（可选；字符串或数组）
-keychain_service = "grok"                 # 系统钥匙串 service（可选；需同时设 keychain_account）
-keychain_account = "new-api"              # 系统钥匙串 account（可选）
+keychain_account = "new-api"              # 系统钥匙串 account（可选；service 默认为 "grok"）
 api_backend = "chat_completions"          # "chat_completions"、"responses" 或 "messages"
 temperature = 0.7                         # 采样温度
 top_p = 0.95                              # 核采样参数
@@ -112,7 +111,7 @@ Grok 按此顺序解析 API 密钥：
 
 1. 模型配置中的 `api_key` 字段
 2. `env_key` 命名的环境变量——单个字符串或名称数组。第一个已设置且非空的值胜出（例如 `env_key = ["ANTHROPIC_AUTH_TOKEN", "LC_ANTHROPIC_AUTH_TOKEN"]`，用于 SSH `LC_*` 转发）
-3. `keychain_service` + `keychain_account` 指向的系统钥匙串项（macOS 钥匙串或 Windows 凭据管理器）。项缺失或为空时，等同于未设置的 `env_key`
+3. `keychain_account` 指向的系统钥匙串项（macOS 钥匙串或 Windows 凭据管理器）。`keychain_service` 默认为 `grok`，不建议改。项缺失或为空时，等同于未设置的 `env_key`
 4. 你的已登录会话令牌（来自 `grok login`），适用于没有自己的 `api_key`/`env_key`/钥匙串的模型
 5. `XAI_API_KEY` 环境变量（全局回退；Grok 也为向后兼容接受 `GROK_CODE_XAI_API_KEY`）
 
@@ -122,16 +121,15 @@ Grok 按此顺序解析 API 密钥：
 [model.codex]
 model = "gpt-5.1-codex"
 base_url = "https://new-api.example/v1"
-keychain_service = "grok"
 keychain_account = "new-api"
 ```
 
 ```bash
-# macOS
+# macOS；-s 必须是 grok（默认 service）
 security add-generic-password -a "new-api" -s "grok" -w "sk-..."
 ```
 
-Windows 的写入方式见 [认证](02-authentication.md#系统钥匙串macos-钥匙串windows-凭据管理器)。两个钥匙串字段必须都设置。Grok 不会记录或回写读到的密钥。
+Windows 的写入方式见 [认证](02-authentication.md#系统钥匙串macos-钥匙串windows-凭据管理器)。`keychain_service` 可选（默认 `grok`，除非必要否则不要改）。Grok 不会记录或回写读到的密钥。
 
 ### 上下文窗口
 

@@ -262,8 +262,7 @@ name = "Display Name"                 # shown in model picker
 description = "Model description"      # optional
 api_key = "sk-..."                    # API key for this provider
 env_key = "XAI_API_KEY"               # env var(s) holding the API key; string or array (first set, non-empty wins)
-keychain_service = "grok"             # OS keychain service (optional; pair with keychain_account)
-keychain_account = "new-api"          # OS keychain account (optional)
+keychain_account = "new-api"          # OS keychain account (optional; service defaults to "grok")
 temperature = 0.7                     # sampling temperature (0.0-2.0)
 top_p = 0.95                          # nucleus sampling parameter
 max_completion_tokens = 8192          # max tokens per response
@@ -273,7 +272,7 @@ env_http_headers = { "X-Tenant" = "TENANT_TOKEN" }    # request headers from env
 extra_body = { enable_thinking = true }               # extra JSON fields merged into the inference request body
 ```
 
-Credential resolution: `api_key` > `env_key` > keychain (`keychain_service` + `keychain_account`) > signed-in session token > `XAI_API_KEY`. See [Custom Models](11-custom-models.md#request-query-parameters) for `query_params`, `env_http_headers`, and `extra_body`, and [Sandbox Mode](18-sandbox.md#shell-environment-policy) for `[shell_environment_policy]`, which restricts the environment variables tool subprocesses inherit.
+Credential resolution: `api_key` > `env_key` > keychain (`keychain_account`; `keychain_service` defaults to `grok` and is not recommended to change) > signed-in session token > `XAI_API_KEY`. See [Custom Models](11-custom-models.md#request-query-parameters) for `query_params`, `env_http_headers`, and `extra_body`, and [Sandbox Mode](18-sandbox.md#shell-environment-policy) for `[shell_environment_policy]`, which restricts the environment variables tool subprocesses inherit.
 
 To override a built-in model, use its name as the section key and set only the fields you need:
 

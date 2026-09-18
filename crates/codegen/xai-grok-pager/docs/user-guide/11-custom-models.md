@@ -93,8 +93,7 @@ name = "Display Name"                     # Shown in the model picker
 description = "Model description"          # Optional description
 api_key = "sk-..."                        # API key for this provider (optional)
 env_key = "XAI_API_KEY"                   # Env var holding the API key (optional; string or array)
-keychain_service = "grok"                 # OS keychain service (optional; pair with keychain_account)
-keychain_account = "new-api"              # OS keychain account (optional)
+keychain_account = "new-api"              # OS keychain account (optional; service defaults to "grok")
 api_backend = "chat_completions"          # "chat_completions", "responses", or "messages"
 reasoning_summary = "concise"             # Responses API only: "none", "auto", "concise", or "detailed"
 temperature = 0.7                         # Sampling temperature
@@ -113,7 +112,7 @@ Grok resolves the API key in this order:
 
 1. The `api_key` field in the model config
 2. The environment variable(s) named by `env_key` — a single string or an array of names. The first set, non-empty value wins (for example `env_key = ["ANTHROPIC_AUTH_TOKEN", "LC_ANTHROPIC_AUTH_TOKEN"]` for SSH `LC_*` forwarding)
-3. The OS keychain item named by `keychain_service` + `keychain_account` (macOS Keychain or Windows Credential Manager). A missing or empty item is the same as an unset `env_key`
+3. The OS keychain item named by `keychain_account` (macOS Keychain or Windows Credential Manager). `keychain_service` defaults to `grok` and is not recommended to change. A missing or empty item is the same as an unset `env_key`
 4. Your signed-in session token (from `grok login`), for a model with no `api_key`/`env_key`/keychain of its own
 5. The `XAI_API_KEY` environment variable (global fallback; Grok also accepts `GROK_CODE_XAI_API_KEY` for backward compatibility)
 
@@ -123,16 +122,15 @@ To keep the secret out of `config.toml`, store it in the keychain and reference 
 [model.codex]
 model = "gpt-5.1-codex"
 base_url = "https://new-api.example/v1"
-keychain_service = "grok"
 keychain_account = "new-api"
 ```
 
 ```bash
-# macOS
+# macOS; -s must be grok (the default service)
 security add-generic-password -a "new-api" -s "grok" -w "sk-..."
 ```
 
-See [Authentication](02-authentication.md#os-keychain-macos-keychain-windows-credential-manager) for Windows store details. Both keychain fields must be set. Grok never logs or writes the retrieved secret.
+See [Authentication](02-authentication.md#os-keychain-macos-keychain-windows-credential-manager) for Windows store details. `keychain_service` is optional (default `grok`; do not change it unless you must). Grok never logs or writes the retrieved secret.
 
 ### Context Window
 
