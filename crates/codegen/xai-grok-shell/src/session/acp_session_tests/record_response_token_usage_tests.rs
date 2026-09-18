@@ -332,6 +332,7 @@ async fn build_session_info_sources_show_model_fingerprint_from_catalog() {
                 mtls_cert_dir: None,
                 api_key: None,
                 env_key: None,
+                keychain: None,
                 auth_provider: None,
                 api_base_url: None,
             };

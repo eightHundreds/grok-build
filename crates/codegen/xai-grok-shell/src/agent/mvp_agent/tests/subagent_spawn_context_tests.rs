@@ -321,6 +321,7 @@ fn model_entry_with_rate_limit(
         mtls_cert_dir: None,
         api_key: None,
         env_key: None,
+        keychain: None,
         auth_provider: None,
         api_base_url: None,
     }

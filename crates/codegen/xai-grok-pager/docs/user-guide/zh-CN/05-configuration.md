@@ -262,6 +262,8 @@ name = "Display Name"                 # 显示在模型选择器中
 description = "Model description"      # 可选
 api_key = "sk-..."                    # 此提供方的 API key
 env_key = "XAI_API_KEY"               # 保存 API key 的环境变量；字符串或数组（第一个已设置且非空的赢）
+keychain_service = "grok"             # 系统钥匙串 service（可选；需同时设 keychain_account）
+keychain_account = "new-api"          # 系统钥匙串 account（可选）
 temperature = 0.7                     # 采样温度（0.0-2.0）
 top_p = 0.95                          # nucleus 采样参数
 max_completion_tokens = 8192          # 每次回复的最大 token
@@ -271,7 +273,7 @@ env_http_headers = { "X-Tenant" = "TENANT_TOKEN" }    # 来自环境变量的请
 extra_body = { enable_thinking = true }               # 合并进推理请求 JSON body 的额外字段
 ```
 
-凭据解析：`api_key` > `env_key` > 已登录会话 token > `XAI_API_KEY`。`query_params`、`env_http_headers` 和 `extra_body` 见 [自定义模型](11-custom-models.md#request-query-parameters)，限制工具子进程继承哪些环境变量的 `[shell_environment_policy]` 见 [沙箱模式](18-sandbox.md#shell-environment-policy)。
+凭据解析：`api_key` > `env_key` > 钥匙串（`keychain_service` + `keychain_account`）> 已登录会话 token > `XAI_API_KEY`。`query_params`、`env_http_headers` 和 `extra_body` 见 [自定义模型](11-custom-models.md#request-query-parameters)，限制工具子进程继承哪些环境变量的 `[shell_environment_policy]` 见 [沙箱模式](18-sandbox.md#shell-environment-policy)。
 
 要覆盖内置模型，用它的名字作为节键，并只设置你需要的字段：
 

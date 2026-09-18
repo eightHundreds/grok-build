@@ -381,6 +381,8 @@ User-level configuration lives in `$GROK_HOME/config.toml` (default `~/.grok/con
 | `model.<id>.extra_headers` | `map<string,string>` | `yes` | `user` | Per-request headers for this model. |
 | `model.<id>.hidden` | `boolean` | `yes` | `user` | Hide this model from the picker. Still usable via `-m`. |
 | `model.<id>.inference_idle_timeout_secs` | `number` | `yes` | `user` | Idle timeout for streaming inference on this model. |
+| `model.<id>.keychain_account` | `string` | `yes` | `user` | OS keychain account/username paired with `keychain_service`. Both required. Missing item is treated like an empty `env_key`. |
+| `model.<id>.keychain_service` | `string` | `yes` | `user` | OS keychain service name (macOS Keychain, Windows Credential Manager). Pair with `keychain_account`. Resolved after `api_key`/`env_key`, before the session token. Never logged. |
 | `model.<id>.max_completion_tokens` | `number` | `yes` | `user` | Per-model max completion tokens. |
 | `model.<id>.max_retries` | `number` | `yes` | `user` | Inference retries for this model. |
 | `model.<id>.model` | `string` | `yes` | `user` | Model id sent to the API. |

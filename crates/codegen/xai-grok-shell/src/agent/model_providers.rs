@@ -2,6 +2,7 @@ use indexmap::IndexMap;
 
 use super::config::{ConfigModelOverride, EnvKeys};
 use super::config_model_override_parse::{ConfigWarning, ConfigWarningKind};
+use super::keychain::KeychainRef;
 use crate::sampling::ApiBackend;
 
 #[derive(Clone, Debug, Default, serde::Deserialize)]
@@ -11,6 +12,8 @@ pub struct ModelProviderConfig {
     pub api_base_url: Option<String>,
     pub env_key: Option<EnvKeys>,
     pub api_key: Option<String>,
+    pub keychain_service: Option<String>,
+    pub keychain_account: Option<String>,
     pub api_backend: Option<ApiBackend>,
     pub extra_headers: IndexMap<String, String>,
     /// Extra JSON fields merged into the inference request body; inherited by models.
@@ -139,6 +142,21 @@ pub(crate) fn parse_model_providers(
                          when its variable resolves, otherwise the helper runs"
                             .to_owned(),
                     ));
+                } else if has_helper
+                    && KeychainRef::from_parts(
+                        provider.keychain_service.as_deref(),
+                        provider.keychain_account.as_deref(),
+                    )
+                    .is_some()
+                {
+                    warnings.push(ConfigWarning::model_provider(
+                        id,
+                        Some("keychain_account"),
+                        ConfigWarningKind::ConflictingFields,
+                        "keychain may shadow this provider's auth helper; keychain takes \
+                         precedence when the item resolves, otherwise the helper runs"
+                            .to_owned(),
+                    ));
                 }
                 if provider.auth_provider.is_some() && provider.auth.is_some() {
                     warnings.push(ConfigWarning::model_provider(
@@ -179,6 +197,8 @@ impl ConfigModelOverride {
             api_base_url,
             env_key,
             api_key,
+            keychain_service,
+            keychain_account,
             api_backend,
             extra_headers,
             extra_body,
@@ -213,11 +233,16 @@ impl ConfigModelOverride {
             .as_deref()
             .is_some_and(|k| !k.trim().is_empty());
         let model_sets_own_env_key = self.env_key.as_ref().and_then(EnvKeys::primary).is_some();
-        let model_has_own_auth =
-            model_sets_own_api_key || model_sets_own_env_key || self.auth_provider.is_some();
+        let model_sets_own_keychain = self.keychain_ref().is_some();
+        let model_has_own_auth = model_sets_own_api_key
+            || model_sets_own_env_key
+            || model_sets_own_keychain
+            || self.auth_provider.is_some();
         if !model_has_own_auth {
             merged.api_key = api_key.clone();
             merged.env_key = env_key.clone();
+            merged.keychain_service = keychain_service.clone();
+            merged.keychain_account = keychain_account.clone();
             merged.auth_provider = auth_provider
                 .clone()
                 .or_else(|| auth.as_ref().map(|_| model_provider_auth_name(provider_id)));
@@ -374,6 +399,44 @@ mod tests {
         );
         let creds = resolve_credentials(model, Some("session-jwt"));
         assert_eq!(creds.api_key.as_deref(), Some("sk-model-own"));
+    }
+
+    #[test]
+    fn model_inherits_provider_keychain() {
+        use crate::agent::keychain::{KeychainRef, override_keychain_lookup};
+
+        fn fake(service: &str, account: &str) -> Option<String> {
+            (service == "grok" && account == "gateway").then(|| "from-provider-keychain".into())
+        }
+        let _kc = override_keychain_lookup(fake);
+
+        let raw_config: toml::Value = toml::from_str(
+            r#"
+            [model_providers.gateway]
+            base_url = "https://gateway.example/v1"
+            context_window = 200000
+            keychain_service = "grok"
+            keychain_account = "gateway"
+
+            [model.via-gateway]
+            model = "m"
+            model_provider = "gateway"
+            "#,
+        )
+        .unwrap();
+
+        let cfg = Config::new_from_toml_cfg(&raw_config).expect("config should parse");
+        let resolved = resolve_model_list(&cfg, None);
+        let model = resolved.get("via-gateway").expect("model should exist");
+        assert_eq!(
+            model.keychain,
+            Some(KeychainRef {
+                service: "grok".into(),
+                account: "gateway".into(),
+            })
+        );
+        let creds = resolve_credentials(model, Some("session-jwt"));
+        assert_eq!(creds.api_key.as_deref(), Some("from-provider-keychain"));
     }
 
     #[test]

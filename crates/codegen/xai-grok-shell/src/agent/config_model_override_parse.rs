@@ -306,9 +306,18 @@ fn parse_model_override_table(
         }
     };
 
+    if entry.keychain_pair_incomplete() {
+        warnings.push(ConfigWarning::model(
+            model_key,
+            Some("keychain_account"),
+            ConfigWarningKind::InvalidValue,
+            "keychain_service and keychain_account must both be set; ignoring the incomplete pair"
+                .to_owned(),
+        ));
+    }
+
     if entry.auth_provider.is_some() {
-        // A non-empty `api_key` always shadows; an `env_key` only shadows when its variable resolves at runtime, which parse time can't know
-        // Warn accordingly so the message matches what actually happens
+        // A non-empty `api_key` always shadows; `env_key` / keychain only shadow when they resolve at runtime
         let has_static_api_key = entry
             .api_key
             .as_deref()
@@ -335,6 +344,16 @@ fn parse_model_override_table(
                 ConfigWarningKind::ConflictingFields,
                 "auth_provider may be shadowed by env_key on this model; env_key \
                  takes precedence when its variable resolves to a value, \
+                 otherwise the provider runs"
+                    .to_owned(),
+            ));
+        } else if entry.keychain_ref().is_some() {
+            warnings.push(ConfigWarning::model(
+                model_key,
+                Some("auth_provider"),
+                ConfigWarningKind::ConflictingFields,
+                "auth_provider may be shadowed by keychain on this model; \
+                 keychain takes precedence when the item resolves, \
                  otherwise the provider runs"
                     .to_owned(),
             ));
@@ -723,6 +742,8 @@ mod tests {
             description: Some("desc".into()),
             api_key: Some("key".into()),
             env_key: Some(crate::agent::config::EnvKeys::single("ENV_KEY")),
+            keychain_service: Some("grok".into()),
+            keychain_account: Some("new-api".into()),
             auth_provider: Some("corp-gateway".into()),
             model_provider: Some("gateway".into()),
             api_base_url: Some("https://api.example.com".into()),
@@ -854,6 +875,27 @@ mod tests {
         );
         let (_, warnings) = parse_single_entry(entry);
         assert_eq!(warnings, Vec::new());
+
+        // A complete keychain pair is a conditional shadow, like env_key.
+        let mut entry = toml::map::Map::new();
+        entry.insert(
+            "keychain_service".to_owned(),
+            toml::Value::String("grok".into()),
+        );
+        entry.insert(
+            "keychain_account".to_owned(),
+            toml::Value::String("new-api".into()),
+        );
+        entry.insert(
+            "auth_provider".to_owned(),
+            toml::Value::String("corp".into()),
+        );
+        let (_, warnings) = parse_single_entry(entry);
+        let [warning] = warnings.as_slice() else {
+            panic!("expected one warning: {warnings:?}");
+        };
+        assert_eq!(warning.kind, ConfigWarningKind::ConflictingFields);
+        assert!(warning.reason.contains("keychain"));
     }
 
     /// Drift guard: every `#[serde(alias)]` on [`ConfigModelOverride`] must have a matching `ALIASES` pair, and vice versa.

@@ -286,9 +286,33 @@ Grok picks up changes to `~/.grok/auth.json` automatically. If you update creden
 
 Grok resolves credentials for each request in this order, highest to lowest:
 
-1. **Per-model `api_key` or `env_key`** -- set under `[model.<name>]` in `config.toml`. Wins whenever present.
+1. **Per-model `api_key`, `env_key`, or keychain** -- set under `[model.<name>]` in `config.toml`. A non-empty `api_key` wins, then the first set `env_key`, then an OS keychain item (`keychain_service` + `keychain_account`). A missing keychain item is the same as an empty env var: that source produces no key (Grok does not send an empty credential from it).
 2. **Active session token** -- obtained through browser, OIDC/OAuth2, or external-provider login and stored in `~/.grok/auth.json`.
 3. **`XAI_API_KEY`** -- fallback when no session token is active.
+
+### OS keychain (macOS Keychain, Windows Credential Manager)
+
+Store the secret in the platform credential store, then point `config.toml` at the item. Grok reads it at request time and never writes the secret back to disk or logs.
+
+```toml
+# ~/.grok/config.toml
+[model.codex]
+base_url = "https://new-api.example/v1"
+keychain_service = "grok"
+keychain_account = "new-api"
+```
+
+Store the password on macOS:
+
+```bash
+security add-generic-password -a "new-api" -s "grok" -w
+# or non-interactive:
+security add-generic-password -a "new-api" -s "grok" -w "sk-..."
+```
+
+`-s` is `keychain_service`, `-a` is `keychain_account`. On Windows, create a generic credential whose target/service is `grok` and user name is `new-api`. Linux Secret Service is not linked in this build (it needs libdbus); a configured keychain pair on Linux produces no key, same as an unset `env_key`.
+
+Both fields must be set. If the item is missing or empty, Grok treats that model as having no keychain credential (same as an unset `env_key`) and continues down the precedence list. A named `[auth_provider.<name>]` helper still runs only when none of `api_key` / `env_key` / keychain resolve.
 
 When more than one login flow is configured, Grok populates the session token from the first available source, highest to lowest:
 

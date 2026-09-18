@@ -3552,6 +3552,7 @@ fn find_model_by_id_prefers_key_then_falls_back_to_slug() {
         mtls_cert_dir: None,
         api_key: None,
         env_key: None,
+        keychain: None,
         auth_provider: None,
         api_base_url: None,
     };
