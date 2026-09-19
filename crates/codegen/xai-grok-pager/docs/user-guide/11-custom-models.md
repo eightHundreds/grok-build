@@ -102,6 +102,7 @@ context_window = 128000                   # Total context window in tokens
 extra_headers = { "x-api-key" = "sk-..." } # Extra request headers, sent verbatim (optional)
 query_params = { api-version = "2026-07-22" } # Query params appended to every request URL (optional)
 env_http_headers = { "X-Tenant" = "TENANT_TOKEN" }    # Headers from env vars, resolved at client build (optional)
+extra_body = { enable_thinking = true }               # Extra JSON fields merged into the inference body (optional)
 ```
 
 ### Credential Resolution
@@ -178,7 +179,34 @@ env_http_headers = { "X-Tenant-Token" = "GATEWAY_TENANT_TOKEN" }
 
 Grok reads each variable when it builds the client for a session and places the value in the request headers only, never on disk. A header is skipped when its variable is unset or blank, and a resolved value overrides an `extra_headers` entry of the same name. Use `extra_headers` for a static value and `env_http_headers` for one that comes from the environment.
 
-Both fields also work on a shared `[model_providers.<id>]` block. A model that points at a provider with `model_provider = "<id>"` inherits the provider's `query_params` and `env_http_headers` when it sets none of its own, matching how `extra_headers` is inherited.
+Both fields also work on a shared `[model_providers.<id>]` block. A model that points at a provider with `model_provider = "<id>"` inherits the provider's `query_params`, `env_http_headers`, and `extra_body` when it sets none of its own, matching how `extra_headers` is inherited.
+
+### Custom Request Body Fields
+
+Some third-party gateways (for example a new-api front that converts Codex) expect extra JSON fields on the inference body. `extra_body` merges those keys into the request JSON sent to `chat_completions`, `responses`, and `messages` -- not into headers or the query string.
+
+```toml
+[models]
+extra_body = { provider_tag = "global-default" }
+
+[model.codex]
+model = "gpt-5.1-codex"
+base_url = "https://new-api.example/v1"
+api_backend = "chat_completions"
+env_key = "NEW_API_KEY"
+
+[model.codex.extra_body]
+enable_thinking = true
+tags = ["codex", "via-new-api"]
+
+[model.codex.extra_body.custom_params]
+foo = "bar"
+n = 1
+```
+
+A per-model `[model.<id>].extra_body` entry overrides the global `[models].extra_body` **per top-level key**: a key set on the model wins, while any global-only keys are still inherited. Nested tables and arrays are allowed. Extra keys are inserted only when they are not already on the request; reserved fields (`model`, `messages`, `input`, `tools`, `stream`, `stream_options`) are skipped so `extra_body` cannot replace the conversation or tool payload.
+
+Like `extra_headers`, these ride on that model's inference calls. A model that sets any `extra_body` of its own does not inherit the provider table wholesale.
 
 ---
 

@@ -58,6 +58,10 @@ pub struct SamplerConfig {
     /// Query parameters folded into every request URL (percent-encoded).
     #[serde(default)]
     pub query_params: IndexMap<String, String>,
+    /// Extra JSON fields merged into the inference request body (top-level keys only).
+    /// Reserved / already-present fields are skipped; they never replace the body.
+    #[serde(default)]
+    pub extra_body: IndexMap<String, serde_json::Value>,
     /// Header name to environment variable, resolved into request headers at client build and never persisted.
     #[serde(default)]
     pub env_http_headers: IndexMap<String, String>,
@@ -137,6 +141,7 @@ impl Default for SamplerConfig {
             extra_headers: IndexMap::new(),
             extra_response_includes: Vec::new(),
             query_params: IndexMap::new(),
+            extra_body: IndexMap::new(),
             env_http_headers: IndexMap::new(),
             context_window: 0,
             force_http1: false,

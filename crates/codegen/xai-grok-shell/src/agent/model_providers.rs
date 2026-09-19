@@ -13,6 +13,8 @@ pub struct ModelProviderConfig {
     pub api_key: Option<String>,
     pub api_backend: Option<ApiBackend>,
     pub extra_headers: IndexMap<String, String>,
+    /// Extra JSON fields merged into the inference request body; inherited by models.
+    pub extra_body: IndexMap<String, serde_json::Value>,
     /// Query parameters folded into every request URL; inherited by models.
     pub query_params: IndexMap<String, String>,
     /// Header name to environment variable; inherited by models, resolved at client build.
@@ -179,6 +181,7 @@ impl ConfigModelOverride {
             api_key,
             api_backend,
             extra_headers,
+            extra_body,
             query_params,
             env_http_headers,
             auth_provider,
@@ -195,6 +198,9 @@ impl ConfigModelOverride {
         // Inherited wholesale only when the model sets none of its own.
         if merged.extra_headers.is_empty() {
             merged.extra_headers = extra_headers.clone();
+        }
+        if merged.extra_body.is_empty() {
+            merged.extra_body = extra_body.clone();
         }
         if merged.query_params.is_empty() {
             merged.query_params = query_params.clone();
@@ -972,6 +978,75 @@ mod tests {
                 .map(String::as_str),
             Some("GATEWAY_TENANT_TOKEN"),
             "the model inherits the provider's env_http_headers mapping (unresolved names)"
+        );
+    }
+
+    #[test]
+    fn model_inherits_provider_extra_body() {
+        let toml_cfg: toml::Value = toml::from_str(
+            r#"
+            [model_providers.gateway]
+            base_url = "https://gateway.example/v1"
+            api_key = "sk-provider"
+
+            [model_providers.gateway.extra_body]
+            enable_thinking = true
+            provider_tag = "from-provider"
+
+            [model.via-gateway]
+            model = "m"
+            model_provider = "gateway"
+            "#,
+        )
+        .unwrap();
+
+        let cfg = Config::new_from_toml_cfg(&toml_cfg).expect("config should parse");
+        let resolved = resolve_model_list(&cfg, None);
+        let model = resolved.get("via-gateway").expect("model should exist");
+        assert_eq!(
+            model.info.extra_body.get("enable_thinking"),
+            Some(&serde_json::json!(true)),
+            "the model inherits the provider's extra_body"
+        );
+        assert_eq!(
+            model.info.extra_body.get("provider_tag"),
+            Some(&serde_json::json!("from-provider"))
+        );
+    }
+
+    #[test]
+    fn model_extra_body_shadows_provider_extra_body() {
+        let toml_cfg: toml::Value = toml::from_str(
+            r#"
+            [model_providers.gateway]
+            base_url = "https://gateway.example/v1"
+            api_key = "sk-provider"
+
+            [model_providers.gateway.extra_body]
+            provider_tag = "provider"
+            leftover = true
+
+            [model.via-gateway]
+            model = "m"
+            model_provider = "gateway"
+
+            [model.via-gateway.extra_body]
+            provider_tag = "model"
+            "#,
+        )
+        .unwrap();
+
+        let cfg = Config::new_from_toml_cfg(&toml_cfg).expect("config should parse");
+        let resolved = resolve_model_list(&cfg, None);
+        let model = resolved.get("via-gateway").expect("model should exist");
+        assert_eq!(
+            model.info.extra_body.get("provider_tag"),
+            Some(&serde_json::json!("model")),
+            "a model that sets its own extra_body inherits none of the provider's"
+        );
+        assert!(
+            !model.info.extra_body.contains_key("leftover"),
+            "provider extra_body is wholesale, not per-key, when the model sets any keys"
         );
     }
 

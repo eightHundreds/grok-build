@@ -368,6 +368,7 @@ Grok Build 还会读这些层，后一行胜出，除非 requirements 的 pin �
 | `model.<id>.description` | `string` | `yes` | `user` | 选择器中显示的可选描述。 |
 | `model.<id>.env_http_headers` | `map<string,string>` | `yes` | `user` | 已设置时从环境变量填充的 HTTP 头。 |
 | `model.<id>.env_key` | `string / string[]` | `yes` | `user` | 存放提供方 API key 的环境变量名。 |
+| `model.<id>.extra_body` | `table` | `yes` | `user` | 合并进此模型推理请求 JSON body 的额外字段。允许嵌套表/数组。保留键（`model`、`messages`、`input`、`tools`、`stream` 等）会被跳过。 |
 | `model.<id>.extra_headers` | `map<string,string>` | `yes` | `user` | 此模型的按请求头。 |
 | `model.<id>.hidden` | `boolean` | `yes` | `user` | 在选择器中隐藏此模型。仍可通过 `-m` 使用。 |
 | `model.<id>.inference_idle_timeout_secs` | `number` | `yes` | `user` | 此模型流式推理的空闲超时。 |
@@ -408,6 +409,7 @@ Grok Build 还会读这些层，后一行胜出，除非 requirements 的 pin �
 | `models.default` | `string` | `pin` | `user` | 新会话使用的模型。也可用 `GROK_DEFAULT_MODEL`、`--model`、`-m`。 |
 | `models.default_reasoning_effort` | `string` | `yes` | `user` | 默认模型支持时的默认 reasoning effort。 |
 | `models.disabled_models` | `string[]` | `yes` | `user` | 从目录中移除这些模型 ID。优先于 `hidden_models`。 |
+| `models.extra_body` | `table` | `yes` | `user` | 应用于每个模型的额外 JSON body 字段；按模型的顶层键优先。 |
 | `models.extra_headers` | `map<string,string>` | `yes` | `user` | 应用于每个模型的请求头；按模型的键优先。 |
 | `models.hidden_models` | `string[]` | `yes` | `user` | 在选择器中隐藏这些模型 ID；`-m` 仍可选择。 |
 | `models.image_description` | `string` | `yes` | `user` | 用于转写用户提供图片的视觉模型。 |

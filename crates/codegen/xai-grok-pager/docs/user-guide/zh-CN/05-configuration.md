@@ -55,6 +55,7 @@ web_search = "grok-4.5"                # web_search 工具使用的模型
 # 应用到每个模型的默认；按模型的 [model.<id>] 值始终优先。
 # 按模型覆盖和完整细节见「自定义模型」。
 extra_headers = { "X-Request-Tags" = "team=example,env=prod" }
+extra_body = { provider_tag = "global-default" }
 temperature = 0.7
 top_p = 0.95
 max_completion_tokens = 8192
@@ -267,9 +268,10 @@ max_completion_tokens = 8192          # 每次回复的最大 token
 context_window = 128000               # 上下文窗口大小（用于自动压缩）
 query_params = { api-version = "2026-07-22" } # 追加到每个请求 URL 的查询参数
 env_http_headers = { "X-Tenant" = "TENANT_TOKEN" }    # 来自环境变量的请求头，在构建客户端时解析
+extra_body = { enable_thinking = true }               # 合并进推理请求 JSON body 的额外字段
 ```
 
-凭据解析：`api_key` > `env_key` > 已登录会话 token > `XAI_API_KEY`。`query_params` 和 `env_http_headers` 见 [自定义模型](11-custom-models.md#request-query-parameters)，限制工具子进程继承哪些环境变量的 `[shell_environment_policy]` 见 [沙箱模式](18-sandbox.md#shell-environment-policy)。
+凭据解析：`api_key` > `env_key` > 已登录会话 token > `XAI_API_KEY`。`query_params`、`env_http_headers` 和 `extra_body` 见 [自定义模型](11-custom-models.md#request-query-parameters)，限制工具子进程继承哪些环境变量的 `[shell_environment_policy]` 见 [沙箱模式](18-sandbox.md#shell-environment-policy)。
 
 要覆盖内置模型，用它的名字作为节键，并只设置你需要的字段：
 
