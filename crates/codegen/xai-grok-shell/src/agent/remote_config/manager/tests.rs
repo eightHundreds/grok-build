@@ -1074,6 +1074,7 @@ fn make_model_entry(model_id: &str) -> ModelEntry {
         mtls_cert_dir: None,
         api_key: None,
         env_key: None,
+        keychain: None,
         auth_provider: None,
         api_base_url: None,
     }

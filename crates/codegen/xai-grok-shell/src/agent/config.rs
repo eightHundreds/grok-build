@@ -1,4 +1,5 @@
 use crate::agent::auth_method::ModelByok;
+pub(crate) use crate::agent::keychain::KeychainRef;
 use crate::agent::model_providers::{
     ModelProviderConfig, auth_config_issues, model_provider_auth_name, parse_model_providers,
 };
@@ -3395,6 +3396,8 @@ pub(crate) fn resolve_model_list(
             base_url = %entry.info.base_url,
             has_api_key = entry.api_key.is_some(),
             env_key = ?entry.env_key,
+            keychain_service = entry.keychain.as_ref().map(|k| k.service.as_str()),
+            keychain_account = entry.keychain.as_ref().map(|k| k.account.as_str()),
             auth_provider = entry.auth_provider.as_ref().map(|p| p.name.as_str()),
             model_provider = model_override.model_provider.as_deref(),
             had_base,
@@ -3719,12 +3722,12 @@ pub struct ModelEntryConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f32>,
     /// The API key for this model's provider.
-    /// If not set, falls back to env_key, then XAI_API_KEY.
+    /// If not set, falls back to env_key, then keychain, then XAI_API_KEY.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
     /// Environment variable name(s) that hold the provider API key.
     /// Accepts a string or an array (first set, non-empty value wins).
-    /// If not set, falls back to XAI_API_KEY.
+    /// If not set, falls back to keychain, then XAI_API_KEY.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env_key: Option<EnvKeys>,
     /// Values: "chat_completions" (default), "responses"
@@ -3884,8 +3887,15 @@ pub struct ConfigModelOverride {
     pub api_key: Option<String>,
     /// Env var name(s) for the provider key: string or array in config.toml.
     pub env_key: Option<EnvKeys>,
+    /// OS keychain service override. Defaults to [`crate::agent::keychain::DEFAULT_KEYCHAIN_SERVICE`].
+    /// Optional; changing it is not recommended.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keychain_service: Option<String>,
+    /// OS keychain account / username. Enough on its own to look up the item.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keychain_account: Option<String>,
     /// Name of a `[auth_provider.<name>]` credential helper that mints this model's bearer token.
-    /// Static `api_key` / `env_key` win when both are set.
+    /// Static `api_key` / `env_key` / keychain win when both are set.
     pub auth_provider: Option<String>,
     pub model_provider: Option<String>,
     pub api_base_url: Option<String>,
@@ -3929,6 +3939,15 @@ pub struct ConfigModelOverride {
     pub reasoning_summary: Option<ReasoningSummary>,
 }
 impl ConfigModelOverride {
+    /// Combined keychain locator when `keychain_account` is non-empty.
+    /// `keychain_service` defaults to [`crate::agent::keychain::DEFAULT_KEYCHAIN_SERVICE`].
+    pub(crate) fn keychain_ref(&self) -> Option<KeychainRef> {
+        KeychainRef::from_parts(
+            self.keychain_service.as_deref(),
+            self.keychain_account.as_deref(),
+        )
+    }
+
     pub(crate) fn apply(
         &self,
         key: &str,
@@ -4045,6 +4064,9 @@ impl ConfigModelOverride {
         if self.env_key.is_some() {
             entry.env_key.clone_from(&self.env_key);
         }
+        if self.keychain_service.is_some() || self.keychain_account.is_some() {
+            entry.keychain = self.keychain_ref();
+        }
         if let Some(ref name) = self.auth_provider {
             entry.auth_provider = Some(xai_grok_login::AuthProviderRef::unresolved(name.clone()));
         }
@@ -4052,7 +4074,10 @@ impl ConfigModelOverride {
             entry.api_base_url.clone_from(&self.api_base_url);
         }
         if self.supported_in_api.is_none()
-            && (self.api_key.is_some() || self.env_key.is_some() || self.auth_provider.is_some())
+            && (self.api_key.is_some()
+                || self.env_key.is_some()
+                || self.keychain_ref().is_some()
+                || self.auth_provider.is_some())
         {
             entry.info.supported_in_api = true;
         }
@@ -4295,6 +4320,9 @@ pub struct ModelEntry {
     pub mtls_cert_dir: Option<PathBuf>,
     pub api_key: Option<String>,
     pub env_key: Option<EnvKeys>,
+    /// OS keychain locator; resolved at call time, never persisted as a secret.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keychain: Option<KeychainRef>,
     /// Named credential helper (`[model.<id>] auth_provider = "<name>"`), resolved against `[auth_provider.<name>]` by `resolve_model_list`.
     /// Config-file models only: the built-in catalog never carries one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -4312,6 +4340,7 @@ impl ModelEntry {
             mtls_cert_dir: None,
             api_key: None,
             env_key: None,
+            keychain: None,
             auth_provider: None,
             api_base_url: None,
         }
@@ -4325,17 +4354,22 @@ impl ModelEntry {
             mtls_cert_dir: None,
             api_key: entry.api_key.clone(),
             env_key: entry.env_key.clone(),
+            keychain: None,
             auth_provider: None,
             api_base_url: entry.api_base_url.clone(),
         }
     }
-    /// Non-empty `api_key`, else first non-empty resolved `env_key`.
+    /// Non-empty `api_key`, else first non-empty resolved `env_key`, else keychain.
     /// `None` falls through to the session / global key.
     /// Static only: never consults auth-provider tokens.
     pub(crate) fn own_credential(&self) -> Option<String> {
-        first_own_credential(self.api_key.as_deref(), self.env_key.as_ref())
+        first_own_credential(
+            self.api_key.as_deref(),
+            self.env_key.as_ref(),
+            self.keychain.as_ref(),
+        )
     }
-    /// The provider governing this model's bearer: `None` when a static `api_key`/`env_key` resolves.
+    /// The provider governing this model's bearer: `None` when a static `api_key`/`env_key`/keychain resolves.
     /// The turn paths consult this, so a shadowed provider never runs.
     pub(crate) fn effective_auth_provider(&self) -> Option<&xai_grok_login::AuthProviderRef> {
         if self.own_credential().is_some() {
@@ -4343,8 +4377,8 @@ impl ModelEntry {
         }
         self.auth_provider.as_ref()
     }
-    /// `true` when the model has a non-empty `api_key`, an `env_key` that resolves to a non-empty value, or a named auth provider.
-    /// Probes `std::env::var` at call time: result is not stable across env changes.
+    /// `true` when the model has a non-empty `api_key`, an `env_key` that resolves to a non-empty value, a keychain item, or a named auth provider.
+    /// Probes `std::env::var` and the OS keychain at call time: result is not stable across env or store changes.
     /// Never executes a provider command.
     pub(crate) fn has_own_credentials(&self) -> bool {
         self.own_credential().is_some() || self.auth_provider.is_some()
@@ -4650,18 +4684,22 @@ pub(crate) struct ResolvedCredentials {
     pub auth_type: xai_chat_state::AuthType,
     pub auth_scheme: AuthScheme,
 }
-/// First usable BYOK credential: a non-empty (trimmed) api_key, else the first set, non-empty env_key value.
+/// First usable BYOK credential: a non-empty (trimmed) api_key, else the first set, non-empty env_key value, else keychain.
 /// Single source of truth for has_own_credentials, resolve_credentials, and the JWT-reload path.
 pub(crate) fn first_own_credential(
     api_key: Option<&str>,
     env_key: Option<&EnvKeys>,
+    keychain: Option<&KeychainRef>,
 ) -> Option<String> {
-    api_key
-        .filter(|k| !k.trim().is_empty())
-        .map(str::to_owned)
-        .or_else(|| env_key.and_then(EnvKeys::resolve_value))
+    if let Some(key) = api_key.filter(|k| !k.trim().is_empty()) {
+        return Some(key.to_owned());
+    }
+    if let Some(key) = env_key.and_then(EnvKeys::resolve_value) {
+        return Some(key);
+    }
+    keychain.and_then(KeychainRef::resolve_value)
 }
-/// Priority: model api_key/env_key > cached auth-provider token > session token > XAI_API_KEY.
+/// Priority: model api_key/env_key/keychain > cached auth-provider token > session token > XAI_API_KEY.
 pub(crate) fn resolve_credentials(
     model: &ModelEntry,
     session_key: Option<&str>,
@@ -4705,6 +4743,15 @@ pub(crate) fn resolve_credentials(
                 model = %info.model,
                 env_key = %env_keys,
                 "model has env_key configured but none of the environment variables are set — \
+                 requests will have no API key",
+            );
+        }
+        if let Some(ref keychain) = model.keychain {
+            tracing::warn!(
+                model = %info.model,
+                service = %keychain.service,
+                account = %keychain.account,
+                "model has keychain configured but the item is missing or empty — \
                  requests will have no API key",
             );
         }
@@ -4937,6 +4984,7 @@ pub(crate) fn resolve_aux_model_sampling_config(
             mtls_cert_dir: None,
             api_key: Some(bearer),
             env_key: None,
+            keychain: None,
             auth_provider: None,
             api_base_url: None,
         };
@@ -5166,6 +5214,7 @@ fn resolve_hidden_default_web_search_sampling_config(
         mtls_cert_dir: None,
         api_key: None,
         env_key: None,
+        keychain: None,
         auth_provider: None,
         api_base_url: None,
     };

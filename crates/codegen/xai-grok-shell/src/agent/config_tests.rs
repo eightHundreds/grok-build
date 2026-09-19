@@ -1117,6 +1117,7 @@ fn test_model_entry(
         mtls_cert_dir: None,
         api_key: api_key.map(|s| s.to_string()),
         env_key: env_key.map(EnvKeys::single),
+        keychain: None,
         auth_provider: None,
         api_base_url: api_base_url.map(|s| s.to_string()),
     }
@@ -1344,12 +1345,58 @@ fn first_own_credential_empty_api_key_falls_through_to_env_key() {
     let _guard = EnvGuard::set(var, "env-token");
     let env_key = EnvKeys::single(var);
     assert_eq!(
-        first_own_credential(Some("   "), Some(&env_key)).as_deref(),
+        first_own_credential(Some("   "), Some(&env_key), None).as_deref(),
         Some("env-token")
     );
     assert_eq!(
-        first_own_credential(Some("real-key"), Some(&env_key)).as_deref(),
+        first_own_credential(Some("real-key"), Some(&env_key), None).as_deref(),
         Some("real-key")
+    );
+}
+fn fake_keychain(service: &str, account: &str) -> Option<String> {
+    match (service, account) {
+        ("grok", "new-api") => Some("from-keychain".into()),
+        _ => None,
+    }
+}
+#[test]
+#[serial]
+fn first_own_credential_order_is_api_key_then_env_then_keychain() {
+    use crate::agent::keychain::override_keychain_lookup;
+    let _kc = override_keychain_lookup(fake_keychain);
+    let env_key = EnvKeys::single("GROK_TEST_KEYCHAIN_ORDER_ENV");
+    let keychain = KeychainRef {
+        service: "grok".into(),
+        account: "new-api".into(),
+    };
+    assert_eq!(
+        first_own_credential(Some("inline-key"), Some(&env_key), Some(&keychain)).as_deref(),
+        Some("inline-key")
+    );
+    let _env = EnvGuard::set("GROK_TEST_KEYCHAIN_ORDER_ENV", "from-env");
+    assert_eq!(
+        first_own_credential(None, Some(&env_key), Some(&keychain)).as_deref(),
+        Some("from-env")
+    );
+    drop(_env);
+    let _unset = EnvGuard::unset("GROK_TEST_KEYCHAIN_ORDER_ENV");
+    assert_eq!(
+        first_own_credential(None, Some(&env_key), Some(&keychain)).as_deref(),
+        Some("from-keychain")
+    );
+}
+#[test]
+fn first_own_credential_missing_keychain_is_none() {
+    use crate::agent::keychain::override_keychain_lookup;
+    let _kc = override_keychain_lookup(fake_keychain);
+    let keychain = KeychainRef {
+        service: "grok".into(),
+        account: "missing".into(),
+    };
+    assert_eq!(
+        first_own_credential(None, None, Some(&keychain)),
+        None,
+        "a missing keychain item must not invent a credential"
     );
 }
 #[test]
@@ -1431,6 +1478,137 @@ fn resolve_credentials_empty_api_key_falls_through_to_session() {
     let creds = resolve_credentials(&model, Some("session-jwt"));
     assert_eq!(creds.auth_type, AuthType::SessionToken);
     assert_eq!(creds.api_key.as_deref(), Some("session-jwt"));
+}
+#[test]
+fn config_toml_keychain_account_only_uses_default_service() {
+    let dm = crate::models::default_model();
+    let (_, models) = resolve_models_from_toml(
+        &format!(
+            r#"
+            [model."{dm}"]
+            model = "{dm}"
+            base_url = "https://new-api.example/v1"
+            keychain_account = "new-api"
+            "#,
+        ),
+        None,
+    );
+    let model = models.get(dm).expect("model should exist");
+    assert_eq!(
+        model.keychain,
+        Some(KeychainRef {
+            service: crate::agent::keychain::DEFAULT_KEYCHAIN_SERVICE.into(),
+            account: "new-api".into(),
+        })
+    );
+}
+#[test]
+fn config_toml_explicit_keychain_service_wins() {
+    let dm = crate::models::default_model();
+    let (_, models) = resolve_models_from_toml(
+        &format!(
+            r#"
+            [model."{dm}"]
+            model = "{dm}"
+            base_url = "https://new-api.example/v1"
+            keychain_service = "custom-svc"
+            keychain_account = "new-api"
+            "#,
+        ),
+        None,
+    );
+    let model = models.get(dm).expect("model should exist");
+    assert_eq!(
+        model.keychain,
+        Some(KeychainRef {
+            service: "custom-svc".into(),
+            account: "new-api".into(),
+        })
+    );
+}
+#[test]
+fn config_toml_keychain_service_only_is_inert_without_warning() {
+    let dm = crate::models::default_model();
+    let (cfg, models) = resolve_models_from_toml(
+        &format!(
+            r#"
+            [model."{dm}"]
+            model = "{dm}"
+            base_url = "https://new-api.example/v1"
+            keychain_service = "grok"
+            "#,
+        ),
+        None,
+    );
+    let model = models.get(dm).expect("model should exist");
+    assert_eq!(model.keychain, None);
+    assert!(
+        !cfg.config_warnings.iter().any(|w| {
+            w.field() == Some("keychain_account") || w.field() == Some("keychain_service")
+        }),
+        "service without account is inert, not a required-pair warning: {:?}",
+        cfg.config_warnings
+    );
+}
+#[test]
+fn resolve_credentials_keychain_wins_over_session() {
+    use crate::agent::keychain::override_keychain_lookup;
+    use xai_chat_state::AuthType;
+    let _kc = override_keychain_lookup(fake_keychain);
+    let mut model = test_model_entry("m", "https://new-api.example/v1", None, None, None);
+    model.keychain = KeychainRef::from_parts(None, Some("new-api"));
+    assert_eq!(
+        model.keychain.as_ref().map(|k| k.service.as_str()),
+        Some(crate::agent::keychain::DEFAULT_KEYCHAIN_SERVICE)
+    );
+    assert!(model.has_own_credentials());
+    let creds = resolve_credentials(&model, Some("session-jwt"));
+    assert_eq!(creds.auth_type, AuthType::ApiKey);
+    assert_eq!(creds.api_key.as_deref(), Some("from-keychain"));
+}
+#[test]
+fn resolve_credentials_explicit_keychain_service_wins() {
+    use crate::agent::keychain::override_keychain_lookup;
+    use xai_chat_state::AuthType;
+    fn fake(service: &str, account: &str) -> Option<String> {
+        match (service, account) {
+            ("custom-svc", "new-api") => Some("from-custom-service".into()),
+            ("grok", "new-api") => Some("from-default-service".into()),
+            _ => None,
+        }
+    }
+    let _kc = override_keychain_lookup(fake);
+    let mut model = test_model_entry("m", "https://new-api.example/v1", None, None, None);
+    model.keychain = KeychainRef::from_parts(Some("custom-svc"), Some("new-api"));
+    let creds = resolve_credentials(&model, Some("session-jwt"));
+    assert_eq!(creds.auth_type, AuthType::ApiKey);
+    assert_eq!(creds.api_key.as_deref(), Some("from-custom-service"));
+}
+#[test]
+fn resolve_credentials_missing_keychain_falls_through_like_empty_env() {
+    use crate::agent::keychain::override_keychain_lookup;
+    use xai_chat_state::AuthType;
+    let _kc = override_keychain_lookup(fake_keychain);
+    let mut model = test_model_entry("m", "https://api.x.ai/v1", None, None, None);
+    model.keychain = KeychainRef::from_parts(Some("grok"), Some("missing"));
+    assert!(!model.has_own_credentials());
+    let creds = resolve_credentials(&model, Some("session-jwt"));
+    assert_eq!(creds.auth_type, AuthType::SessionToken);
+    assert_eq!(creds.api_key.as_deref(), Some("session-jwt"));
+}
+#[test]
+#[serial]
+fn resolve_credentials_env_key_wins_over_keychain() {
+    use crate::agent::keychain::override_keychain_lookup;
+    use xai_chat_state::AuthType;
+    let _kc = override_keychain_lookup(fake_keychain);
+    let env_var = "GROK_TEST_KEYCHAIN_ENV_WINS";
+    let _env = EnvGuard::set(env_var, "from-env");
+    let mut model = test_model_entry("m", "https://new-api.example/v1", None, Some(env_var), None);
+    model.keychain = KeychainRef::from_parts(Some("grok"), Some("new-api"));
+    let creds = resolve_credentials(&model, Some("session-jwt"));
+    assert_eq!(creds.auth_type, AuthType::ApiKey);
+    assert_eq!(creds.api_key.as_deref(), Some("from-env"));
 }
 #[test]
 #[serial]
@@ -7471,6 +7649,7 @@ fn prefetch_model_entry(slug: &str, context_window: u64, api_backend: ApiBackend
         mtls_cert_dir: None,
         api_key: None,
         env_key: None,
+        keychain: None,
         auth_provider: None,
         api_base_url: None,
     }

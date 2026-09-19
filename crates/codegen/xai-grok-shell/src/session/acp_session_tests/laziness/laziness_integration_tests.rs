@@ -32,6 +32,7 @@ fn detector_entry(
         mtls_cert_dir: None,
         api_key: None,
         env_key: None,
+        keychain: None,
         auth_provider: None,
         api_base_url: None,
     }

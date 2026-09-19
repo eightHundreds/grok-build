@@ -372,6 +372,8 @@ Grok Build 还会读这些层，后一行胜出，除非 requirements 的 pin �
 | `model.<id>.extra_headers` | `map<string,string>` | `yes` | `user` | 此模型的按请求头。 |
 | `model.<id>.hidden` | `boolean` | `yes` | `user` | 在选择器中隐藏此模型。仍可通过 `-m` 使用。 |
 | `model.<id>.inference_idle_timeout_secs` | `number` | `yes` | `user` | 此模型流式推理的空闲超时。 |
+| `model.<id>.keychain_account` | `string` | `yes` | `user` | 系统钥匙串 account/用户名。单独设置即可；未写 `keychain_service` 时查找 service `grok`。项缺失时等同于空的 `env_key`。 |
+| `model.<id>.keychain_service` | `string` | `yes` | `user` | 可选的系统钥匙串 service 覆盖。默认 `grok`，不建议改。在 `api_key`/`env_key` 之后、会话 token 之前解析。密钥不会被记录。 |
 | `model.<id>.max_completion_tokens` | `number` | `yes` | `user` | 按模型的最大 completion token 数。 |
 | `model.<id>.max_retries` | `number` | `yes` | `user` | 此模型的推理重试次数。 |
 | `model.<id>.model` | `string` | `yes` | `user` | 发给 API 的模型 id。 |

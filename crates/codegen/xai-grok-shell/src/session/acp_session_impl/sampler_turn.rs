@@ -2128,16 +2128,20 @@ impl SessionActor {
             return None;
         };
 
+        let keychain = model.keychain_ref();
         let key = crate::agent::config::first_own_credential(
             model.api_key.as_deref(),
             model.env_key.as_ref(),
+            keychain.as_ref(),
         );
 
         if key.is_none() {
             tracing::warn!(
                 model = %current_model_id,
                 env_key = ?model.env_key,
-                "No api_key or env_key resolved for model"
+                keychain_service = model.keychain_service.as_deref(),
+                keychain_account = model.keychain_account.as_deref(),
+                "No api_key, env_key, or keychain credential resolved for model"
             );
         }
 

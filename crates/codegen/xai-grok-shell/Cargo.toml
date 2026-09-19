@@ -195,6 +195,17 @@ nix = { workspace = true }
 siphasher = { workspace = true }
 windows = { workspace = true }
 
+# Native OS stores. Linux Secret Service needs libdbus, which this tree does not
+# already link; a missing backend fails closed (no key), same as an empty env var.
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6.3", default-features = false, features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3.6.3", default-features = false, features = ["windows-native"] }
+
+[target.'cfg(not(any(target_os = "macos", target_os = "windows")))'.dependencies]
+keyring = { version = "3.6.3", default-features = false }
+
 [dev-dependencies]
 xai-dirs = { workspace = true }
 xai-grok-status-line = { workspace = true, features = ["test-support"] }

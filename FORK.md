@@ -61,6 +61,10 @@ The turn `Worked for` line also shows output token rate and TTFT when those valu
 
 `[models].extra_body` / `[model.<id>].extra_body` inject extra JSON fields into inference request bodies (per-key merge; model wins; reserved fields such as `model` / `messages` / `input` / `tools` / `stream` are not overwritten).
 
+### OS keychain API keys
+
+`[model.<id>] keychain_account` loads the API key from the OS keychain (service defaults to `grok`; `keychain_service` is optional and not recommended to change). macOS Keychain and Windows Credential Manager; Linux fails closed without libdbus.
+
 ## Versioning
 
 Do **not** bump the three-digit crate semver ahead of, or independently from, upstream. `crates/codegen/xai-grok-version/Cargo.toml` stays whatever the last `Synced from monorepo` snapshot shipped (currently `1.0.32`).
