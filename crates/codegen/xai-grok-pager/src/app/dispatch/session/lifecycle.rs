@@ -729,7 +729,7 @@ fn configure_agent_composer(app: &mut AppView, agent_id: AgentId) {
     let recap = app.session_recap_available;
     let voice = app.voice_mode_enabled;
     let sharing_enabled = app.sharing_enabled;
-    let usage_visible = app.usage_visible;
+    let usage_visible = app.official_billing_visible();
     let usage_command_visible = !app.has_external_auth_provider;
     let chat_mode = app.chat_mode;
     let screen_mode = app.screen_mode;
@@ -1209,7 +1209,7 @@ pub(in crate::app::dispatch) fn dispatch_new_worktree_session(
         agent.set_voice_mode_available(app.voice_mode_enabled);
         agent.apply_app_scoped_gates(
             app.sharing_enabled,
-            app.usage_visible,
+            app.official_usage && app.usage_visible,
             !app.has_external_auth_provider,
             app.chat_mode,
             app.screen_mode,
@@ -1391,11 +1391,13 @@ pub(in crate::app::dispatch) fn handle_session_created(
                 session_id: session_id_clone.clone(),
             });
         }
-        effects.push(Effect::FetchBilling {
-            agent_id,
-            silent: true,
-            nonce: Default::default(),
-        });
+        if app.official_usage && app.usage_visible {
+            effects.push(Effect::FetchBilling {
+                agent_id,
+                silent: true,
+                nonce: Default::default(),
+            });
+        }
         if let Some(switch) = deferred {
             effects.push(Effect::SwitchModel {
                 agent_id,
@@ -1530,11 +1532,13 @@ pub(in crate::app::dispatch) fn handle_worktree_session_created(
                 session_id: session_id_clone.clone(),
             });
         }
-        effects.push(Effect::FetchBilling {
-            agent_id,
-            silent: true,
-            nonce: Default::default(),
-        });
+        if app.official_usage && app.usage_visible {
+            effects.push(Effect::FetchBilling {
+                agent_id,
+                silent: true,
+                nonce: Default::default(),
+            });
+        }
         if let Some(switch) = deferred {
             effects.push(Effect::SwitchModel {
                 agent_id,

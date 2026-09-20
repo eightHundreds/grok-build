@@ -417,16 +417,16 @@ Log out and return to the login screen.
 
 ### `/usage`
 
-View credit usage or manage billing. Alias: `/cost`.
+View this session's context and token totals. Alias: `/cost`. Official xAI account quota / **Usage limit** / billing manage is hidden unless you opt in.
 
 ```
 /usage
 /usage manage
 ```
 
-Inside a session this opens the usage modal with the account allowance plus that session's context and token totals. From the [Agent Dashboard](23-dashboard.md#dispatch-input) the same modal opens over the dashboard; there is no session there, so only the **Usage limit** tab carries data.
+Inside a session this opens the usage modal with that session's context and token totals. The **Usage limit** tab (account allowance, prepaid credits, `/usage manage`) appears only when `[ui] official_usage = true` or `GROK_OFFICIAL_USAGE` is set. See [Configuration reference](26-config-reference.md). From the [Agent Dashboard](23-dashboard.md#dispatch-input) the same modal opens over the dashboard; without a session and without the opt-in there is no official allowance to show.
 
-For persisted per-turn token and cost totals of any local session, use `grok usage <session-id> [turn]` from the shell. See [Session Management](17-sessions.md#the-grok-usage-subcommand).
+Session-local token counts, the turn **Worked for** / token-rate / TTFT line, and `grok usage <session-id> [turn]` are not gated by this flag. For persisted per-turn token and cost totals of any local session, use `grok usage <session-id> [turn]` from the shell. See [Session Management](17-sessions.md#the-grok-usage-subcommand).
 
 ### `/privacy`
 

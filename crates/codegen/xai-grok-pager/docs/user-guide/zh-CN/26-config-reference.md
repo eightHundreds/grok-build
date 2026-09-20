@@ -606,6 +606,7 @@ Grok Build 还会读这些层，后一行胜出，除非 requirements 的 pin �
 | `ui.keep_text_selection` | `flash / hold / word_select` | `yes` | `user` | 应用内选择：短暂闪一下、保持，或双击选词。 |
 | `ui.max_thoughts_width` | `number` | `yes` | `user` | 思考面板的列宽（40–500）。 |
 | `ui.mouse_reporting_toggle` | `boolean` | `yes` | `user` | 在回滚中按 Ctrl+R 切换终端鼠标捕获。也可用 GROK_MOUSE_REPORTING_TOGGLE。 |
+| `ui.official_usage` | `boolean` | `yes` | `user` | 显示官方 xAI 账户额度 / 账单界面（`/usage` 的 **Usage limit**、额度警告、账单请求）。默认 false，必须显式打开。也可用 `GROK_OFFICIAL_USAGE`。会话 token 合计和 `grok usage <session-id>` 不受影响。 |
 | `ui.page_flip_on_send` | `boolean` | `yes` | `user` | 把已发送的提示吸到视口顶部。 |
 | `ui.permission_mode` | `default / ask / auto / always-approve` | `yes` | `user` | 默认工具权限行为。企业锁定用 requirements.toml。 |
 | `ui.prompt_suggestions` | `boolean` | `yes` | `user` | 每回合后的下一条提示幽灵文本。也可用 GROK_PROMPT_SUGGESTIONS；远程紧急开关可在整机群关闭。 |

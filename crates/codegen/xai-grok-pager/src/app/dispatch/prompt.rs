@@ -700,6 +700,7 @@ pub(super) fn dispatch_send_prompt_submission(
     let voice_stt_language_from_app = app.voice_config.language.clone();
     let login_method_id_from_app = app.login_method_id.as_ref().map(|id| id.0.to_string());
     let leader_mode = app.leader_mode;
+    let official_billing = app.official_billing_visible();
     let Some(agent) = app.agents.get_mut(&id) else {
         return prelude;
     };
@@ -786,7 +787,7 @@ pub(super) fn dispatch_send_prompt_submission(
                 session_id: agent.session.session_id.as_ref(),
                 bundle_state: &app.bundle_state,
                 screen_mode: app.screen_mode,
-                billing_surface_visible: app.usage_visible,
+                billing_surface_visible: official_billing,
                 usage_command_visible: !app.has_external_auth_provider,
                 // PAGER-owned snapshot for slash commands.
                 pager_state: crate::settings::PagerLocalSnapshot {
@@ -1338,6 +1339,7 @@ pub(super) fn handle_prompt_response(
     // The leader's `running_prompt_id` broadcast can arrive before this `PromptResponse`
     // Take any stashed adoption now; it is applied after `finish_turn` clears `current_prompt_id` below
     let pending_adoption = app.pending_running_adoptions.remove(&agent_id);
+    let official_billing = app.official_billing_visible();
     if let Some(agent) = app.agents.get_mut(&agent_id) {
         // Discard PromptResponses that don't belong to the currently active prompt
         // They belong to a turn the user rewound, or to a queued prompt that never became the running turn
@@ -1809,11 +1811,13 @@ pub(super) fn handle_prompt_response(
             });
         }
 
-        effects.push(Effect::FetchBilling {
-            agent_id,
-            silent: true,
-            nonce: Default::default(),
-        });
+        if official_billing {
+            effects.push(Effect::FetchBilling {
+                agent_id,
+                silent: true,
+                nonce: Default::default(),
+            });
+        }
         note_peek_page_flip(app, agent_id, page_flip_entry);
         return effects;
     }

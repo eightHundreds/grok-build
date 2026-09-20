@@ -102,7 +102,7 @@ pub(super) fn ensure_dashboard_state(app: &mut AppView) {
     state.set_recap_visible(app.session_recap_available);
     state.set_voice_visible(app.voice_mode_enabled);
     state.set_restricted_commands(&app.tier_restricted_commands);
-    let billing = app.usage_visible;
+    let billing = app.official_billing_visible();
     let usage_cmd = !app.has_external_auth_provider;
     state
         .dispatch
@@ -1462,7 +1462,7 @@ pub(super) fn dispatch_dashboard_dispatch_slash(app: &mut AppView, text: String)
             session_id: None,
             bundle_state: &app.bundle_state,
             screen_mode: app.screen_mode,
-            billing_surface_visible: app.usage_visible,
+            billing_surface_visible: app.official_billing_visible(),
             usage_command_visible: !app.has_external_auth_provider,
             pager_state: crate::settings::PagerLocalSnapshot {
                 multiline_mode: dashboard_multiline,

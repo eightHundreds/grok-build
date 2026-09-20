@@ -307,6 +307,18 @@ pub(super) fn handle_settings_update(notif: &acp::ExtNotification, app: &mut App
         }
     }
 
+    let official_usage = xai_grok_shell::util::config::resolve_official_usage(
+        requirements.as_ref(),
+        user_config.as_ref(),
+        managed_config.as_ref(),
+    )
+    .value;
+    if official_usage != app.official_usage {
+        app.official_usage = official_usage;
+        app.current_ui.official_usage = Some(official_usage);
+        app.sync_billing_surface_to_agents();
+    }
+
     // A live session's scheduled fires keep the mode the shell pinned when the session's actor spawned
     // Applying a pushed flip here would make `/loop` promise a runtime those fires never get
 

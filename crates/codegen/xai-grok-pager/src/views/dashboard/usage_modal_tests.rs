@@ -16,6 +16,7 @@ fn session_less_modal(tab: UsageInfoTab) -> Box<UsageInfoModalState> {
         UsageInfoContext {
             session_id: None,
             usage_visible: true,
+            official_usage: true,
             chat_kind: false,
             billing_redirect_url: None,
             subscription_tier: Some("SuperGrok".to_string()),

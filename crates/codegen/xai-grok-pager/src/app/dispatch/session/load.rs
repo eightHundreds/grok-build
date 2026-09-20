@@ -246,7 +246,7 @@ fn dispatch_load_session_ungated(
     }
     agent_mut.apply_app_scoped_gates(
         app.sharing_enabled,
-        app.usage_visible,
+        app.official_usage && app.usage_visible,
         !app.has_external_auth_provider,
         app.chat_mode,
         app.screen_mode,
@@ -1149,7 +1149,7 @@ pub(in crate::app::dispatch) fn dispatch_load_session_with_restore(
         agent.set_voice_mode_available(app.voice_mode_enabled);
         agent.apply_app_scoped_gates(
             app.sharing_enabled,
-            app.usage_visible,
+            app.official_usage && app.usage_visible,
             !app.has_external_auth_provider,
             app.chat_mode,
             app.screen_mode,
@@ -1315,11 +1315,13 @@ pub(in crate::app::dispatch) fn handle_session_loaded(
                 session_id: hydrate_sid.clone(),
             });
         }
-        effects.push(Effect::FetchBilling {
-            agent_id,
-            silent: true,
-            nonce: Default::default(),
-        });
+        if app.official_usage && app.usage_visible {
+            effects.push(Effect::FetchBilling {
+                agent_id,
+                silent: true,
+                nonce: Default::default(),
+            });
+        }
         if let Some(switch) = deferred {
             agent.session.model_switch_pending = true;
             effects.push(Effect::SwitchModel {
