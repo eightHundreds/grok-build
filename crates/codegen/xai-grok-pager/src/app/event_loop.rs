@@ -1393,6 +1393,14 @@ pub(crate) async fn run(
         )
         .value,
     );
+    app.official_usage = xai_grok_shell::util::config::resolve_official_usage(
+        requirements.as_ref(),
+        user_config.as_ref(),
+        managed_config.as_ref(),
+    )
+    .value;
+    app.current_ui.official_usage = Some(app.official_usage);
+    app.sync_billing_surface_to_agents();
     app.usage_billing_redirect_url = remote_settings
         .as_ref()
         .and_then(|s| s.usage_billing_redirect_url.clone());
@@ -1710,7 +1718,7 @@ pub(crate) async fn run(
         if process_effects(effs, &mut tasks, &mut app, &progress_tx) {
             return Ok(finish_run(&mut app));
         }
-        if app.usage_visible {
+        if app.official_billing_visible() {
             let effs = vec![super::actions::Effect::FetchAppBilling { nonce: 0 }];
             if process_effects(effs, &mut tasks, &mut app, &progress_tx) {
                 return Ok(finish_run(&mut app));
@@ -2478,7 +2486,9 @@ pub(crate) async fn run(
 
             _ = billing_poll => {
                 billing_poll_at = None;
-                if let ActiveView::Agent(id) = app.active_view {
+                if app.official_billing_visible()
+                    && let ActiveView::Agent(id) = app.active_view
+                {
                     let effs = vec![Effect::FetchBilling {
                         agent_id: id,
                         silent: true,

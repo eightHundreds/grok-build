@@ -132,6 +132,10 @@ pub struct UiConfig {
     /// `None` means off (client default). Written by the pager's settings modal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub collapsed_edit_blocks: Option<bool>,
+    /// Official xAI account quota / billing chrome (credit warnings, `/usage` **Usage limit** tab, billing fetches).
+    /// `None` means off (must opt in). Config-file + `GROK_OFFICIAL_USAGE` only; no `/settings` row.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub official_usage: Option<bool>,
     /// Next-prompt suggestions (tab autocomplete ghost text) after each turn.
     /// `None` means on (client default).
     /// Written by the pager's settings modal; the `GROK_PROMPT_SUGGESTIONS` env var overrides at runtime.
@@ -279,6 +283,7 @@ impl Default for UiConfig {
             show_thinking_blocks: None,
             group_tool_verbs: None,
             collapsed_edit_blocks: None,
+            official_usage: None,
             prompt_suggestions: None,
             cursor_blink: None,
             screen_mode: None,
@@ -293,6 +298,14 @@ impl Default for UiConfig {
 }
 
 impl UiConfig {
+    /// Official xAI quota / billing chrome. Off unless `[ui] official_usage` or `GROK_OFFICIAL_USAGE` opts in.
+    pub const OFFICIAL_USAGE_DEFAULT: bool = false;
+
+    /// Resolved official-usage setting: the configured value, or [`Self::OFFICIAL_USAGE_DEFAULT`] when unset.
+    pub fn official_usage_enabled(&self) -> bool {
+        self.official_usage.unwrap_or(Self::OFFICIAL_USAGE_DEFAULT)
+    }
+
     /// The single source of truth for the timeline-sidebar default (opt-in). TODO: migrate the other boolean UI settings
     /// (show_timestamps, simple_mode, show_thinking_blocks, …) to the same const and resolver pattern. They currently
     /// duplicate their default literal across cache.rs / config.rs / defs.rs / setters.rs / registry.rs.

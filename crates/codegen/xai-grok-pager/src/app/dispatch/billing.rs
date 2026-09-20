@@ -482,11 +482,13 @@ pub(super) fn handle_credit_limit_recheck_complete(
     }
 
     let mut drain = maybe_drain_queue(agent);
-    drain.effects.push(Effect::FetchBilling {
-        agent_id,
-        silent: true,
-        nonce: Default::default(),
-    });
+    if app.official_billing_visible() {
+        drain.effects.push(Effect::FetchBilling {
+            agent_id,
+            silent: true,
+            nonce: Default::default(),
+        });
+    }
     note_peek_page_flip(app, agent_id, drain.page_flip_entry);
     drain.effects
 }

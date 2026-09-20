@@ -411,16 +411,16 @@ shell 另外支持子命令（`/plugins list`、`/plugins install <source>`、`/
 
 ### `/usage`
 
-查看额度用量或管理账单。别名：`/cost`。
+查看本会话的上下文和 token 总计。别名：`/cost`。官方 xAI 账户额度 / **Usage limit** / 账单管理默认隐藏，需要配置才会出现。
 
 ```
 /usage
 /usage manage
 ```
 
-在会话内这会打开用量模态框，含账户额度以及该会话的上下文和 token 总计。从 [Agent Dashboard](23-dashboard.md#dispatch-input) 打开时，同一模态框叠在仪表盘上；那里没有会话，因此只有 **Usage limit** 标签有数据。
+在会话内这会打开用量模态框，显示该会话的上下文和 token 总计。**Usage limit** 标签（账户额度、预付积分、`/usage manage`）仅在 `[ui] official_usage = true` 或设置了 `GROK_OFFICIAL_USAGE` 时出现。见 [配置参考](26-config-reference.md)。从 [Agent Dashboard](23-dashboard.md#dispatch-input) 打开时，同一模态框叠在仪表盘上；没有会话且未开启该选项时，不会显示官方额度。
 
-要查看任意本地会话已持久化的每回合 token 和费用总计，从 shell 使用 `grok usage <session-id> [turn]`。见 [会话管理](17-sessions.md#the-grok-usage-subcommand)。
+会话内 token 计数、回合 **Worked for** / token 速率 / TTFT，以及 `grok usage <session-id> [turn]` 不受此开关影响。要查看任意本地会话已持久化的每回合 token 和费用总计，从 shell 使用 `grok usage <session-id> [turn]`。见 [会话管理](17-sessions.md#the-grok-usage-subcommand)。
 
 ### `/privacy`
 

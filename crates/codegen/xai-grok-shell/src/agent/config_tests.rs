@@ -2068,6 +2068,22 @@ fn parses_empty_session_title_refresh_turns() {
     assert_eq!(cfg.session.title_refresh_turns.as_deref(), Some(&[][..]));
 }
 #[test]
+fn official_usage_defaults_off_and_parses_opt_in() {
+    let cfg = Config::default();
+    assert_eq!(cfg.ui.official_usage, None);
+    assert!(!cfg.ui.official_usage_enabled());
+    let raw_config: toml::Value = toml::from_str(
+        r#"
+            [ui]
+            official_usage = true
+            "#,
+    )
+    .unwrap();
+    let cfg = Config::new_from_toml_cfg(&raw_config).expect("config should parse");
+    assert_eq!(cfg.ui.official_usage, Some(true));
+    assert!(cfg.ui.official_usage_enabled());
+}
+#[test]
 fn compaction_mode_precedence_env_over_config_over_remote_over_default() {
     use xai_chat_state::CompactionMode;
     assert_eq!(

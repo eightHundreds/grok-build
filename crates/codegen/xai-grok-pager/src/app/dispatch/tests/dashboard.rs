@@ -3267,6 +3267,24 @@ fn dashboard_slash_usage_opens_dashboard_modal() {
         );
     }
 }
+#[serial_test::serial(GROK_AGENT_DASHBOARD)]
+#[test]
+fn dashboard_slash_usage_without_official_opt_in_skips_billing_fetch() {
+    use crate::views::usage_modal::UsageInfoTab;
+    let mut app = three_agent_app();
+    app.official_usage = false;
+    app.sync_billing_surface_to_agents();
+    open_dashboard(&mut app);
+    let effects = dispatch_dashboard_dispatch_slash(&mut app, "/usage".into());
+    assert!(
+        effects.is_empty(),
+        "dashboard /usage must not fetch official billing when opted out, got: {effects:?}"
+    );
+    let modal = dashboard_usage_modal(&app);
+    assert_eq!(modal.active_tab, UsageInfoTab::ContextUsage);
+    assert!(!modal.ctx.official_usage);
+    assert!(!modal.billing_loading);
+}
 /// A second open re-tabs the existing modal without a second fetch; the tab really changes when the action asks for another one.
 /// The session-scoped `/context` slash stays refused on the dashboard and leaves the modal alone.
 #[serial_test::serial(GROK_AGENT_DASHBOARD)]

@@ -1672,6 +1672,35 @@ fn show_usage_opens_modal_on_usage_limit_tab_with_fetches() {
 }
 
 #[test]
+fn show_usage_without_official_opt_in_skips_billing_and_usage_limit_tab() {
+    let mut app = test_app_with_agent();
+    app.official_usage = false;
+    app.sync_billing_surface_to_agents();
+    let effects = dispatch(Action::ShowUsage, &mut app);
+    let state = usage_modal_state(&app);
+    assert_eq!(
+        state.active_tab,
+        crate::views::usage_modal::UsageInfoTab::ContextUsage
+    );
+    assert!(!state.ctx.official_usage);
+    assert!(!state.billing_loading);
+    assert!(
+        matches!(
+            effects.as_slice(),
+            [
+                Effect::ShowContextInfo { .. },
+                Effect::ShowSessionInfo { .. },
+                Effect::FetchSessionUsage { .. },
+            ]
+        ),
+        "must keep session token fetches and skip official billing, got: {effects:?}"
+    );
+    assert!(!effects
+        .iter()
+        .any(|e| matches!(e, Effect::FetchBilling { .. } | Effect::FetchAppBilling { .. })));
+}
+
+#[test]
 fn show_context_info_retabs_open_modal_without_refetching() {
     let mut app = test_app_with_agent();
     dispatch(Action::ShowUsage, &mut app);

@@ -69,6 +69,30 @@ pub fn resolve_group_tool_verbs(
     )
 }
 
+pub const ENV_OFFICIAL_USAGE: &str = "GROK_OFFICIAL_USAGE";
+
+#[cfg(test)]
+static OFFICIAL_USAGE_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Resolve whether the TUI shows official xAI account quota / billing chrome.
+/// Off by default: `[ui] official_usage = true` or `GROK_OFFICIAL_USAGE` must opt in.
+/// No remote tier — this is a local fork pin. Session token totals are not gated here.
+pub fn resolve_official_usage(
+    requirements: Option<&TomlValue>,
+    user: Option<&TomlValue>,
+    managed: Option<&TomlValue>,
+) -> crate::agent::config::Resolved<bool> {
+    resolve_ui_bool(
+        ENV_OFFICIAL_USAGE,
+        "official_usage",
+        false,
+        requirements,
+        user,
+        managed,
+        None,
+    )
+}
+
 pub const ENV_COLLAPSED_EDIT_BLOCKS: &str = "GROK_COLLAPSED_EDIT_BLOCKS";
 
 #[cfg(test)]
@@ -412,5 +436,73 @@ mod collapsed_edit_blocks_tests {
         let r = resolve_collapsed_edit_blocks(None, None, Some(&on), Some(&remote(Some(false))));
         assert!(r.value);
         assert_eq!(r.source, ConfigSource::ManagedConfig);
+    }
+}
+
+#[cfg(test)]
+mod official_usage_tests {
+    use super::*;
+    use crate::agent::config::ConfigSource;
+
+    fn guard() -> std::sync::MutexGuard<'static, ()> {
+        let g = super::OFFICIAL_USAGE_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        unsafe { std::env::remove_var(ENV_OFFICIAL_USAGE) };
+        g
+    }
+
+    fn toml_ui(v: bool) -> TomlValue {
+        toml::from_str(&format!("[ui]\nofficial_usage = {v}\n")).unwrap()
+    }
+
+    #[test]
+    fn defaults_off_when_nothing_set() {
+        let _g = guard();
+        let r = resolve_official_usage(None, None, None);
+        assert!(!r.value, "official usage must default OFF");
+        assert_eq!(r.source, ConfigSource::Default);
+    }
+
+    #[test]
+    fn each_layer_can_turn_it_on() {
+        let _g = guard();
+        let on = toml_ui(true);
+        let r = resolve_official_usage(Some(&on), None, None);
+        assert!(r.value);
+        assert_eq!(r.source, ConfigSource::Requirement);
+        unsafe { std::env::set_var(ENV_OFFICIAL_USAGE, "1") };
+        let r = resolve_official_usage(None, None, None);
+        assert!(r.value, "env enable must beat the false default");
+        assert_eq!(r.source, ConfigSource::Env);
+        unsafe { std::env::remove_var(ENV_OFFICIAL_USAGE) };
+        let r = resolve_official_usage(None, Some(&on), None);
+        assert!(r.value);
+        assert_eq!(r.source, ConfigSource::Config);
+        let r = resolve_official_usage(None, None, Some(&on));
+        assert!(r.value);
+        assert_eq!(r.source, ConfigSource::ManagedConfig);
+    }
+
+    #[test]
+    fn env_overrides_config() {
+        let _g = guard();
+        unsafe { std::env::set_var(ENV_OFFICIAL_USAGE, "0") };
+        let on = toml_ui(true);
+        let r = resolve_official_usage(None, Some(&on), None);
+        assert!(!r.value, "env must override config");
+        assert_eq!(r.source, ConfigSource::Env);
+        unsafe { std::env::remove_var(ENV_OFFICIAL_USAGE) };
+    }
+
+    #[test]
+    fn requirement_beats_env() {
+        let _g = guard();
+        unsafe { std::env::set_var(ENV_OFFICIAL_USAGE, "1") };
+        let off = toml_ui(false);
+        let r = resolve_official_usage(Some(&off), None, None);
+        assert!(!r.value, "requirement must beat env");
+        assert_eq!(r.source, ConfigSource::Requirement);
+        unsafe { std::env::remove_var(ENV_OFFICIAL_USAGE) };
     }
 }

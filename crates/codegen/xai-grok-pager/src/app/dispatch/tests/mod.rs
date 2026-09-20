@@ -295,6 +295,7 @@ fn test_app() -> AppView {
         plugin_cta_marketplace: None,
         workspace_dashboard_enabled: false,
         usage_visible: true,
+        official_usage: true,
         has_external_auth_provider: false,
         backend_billed: false,
         tier_restricted_commands: Vec::new(),

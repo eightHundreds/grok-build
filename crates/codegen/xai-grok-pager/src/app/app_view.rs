@@ -640,6 +640,9 @@ pub struct AppView {
     /// Consumer billing surface (credit fetches / warnings). False for team and API-key auth.
     /// `/usage` itself stays available for session token/cost unless [`Self::has_external_auth_provider`].
     pub usage_visible: bool,
+    /// Fork opt-in for official xAI account quota / billing chrome.
+    /// Default off; `[ui] official_usage` or `GROK_OFFICIAL_USAGE` must set it. Session token totals stay available.
+    pub official_usage: bool,
     /// External `auth_provider_command` deployment.
     /// No grok.com billing session exists; `/usage` and credit UI stay off.
     pub has_external_auth_provider: bool,
@@ -1297,9 +1300,14 @@ impl AppView {
             self.show_resolved_model = show;
         }
     }
+    /// Official xAI quota / billing chrome: consumer account **and** the `[ui] official_usage` opt-in.
+    pub fn official_billing_visible(&self) -> bool {
+        self.official_usage && self.usage_visible
+    }
+
     /// Mirror the billing and `/usage` gates onto every slash surface (agents, welcome, dashboard dispatch / peek-reply).
     pub(crate) fn sync_billing_surface_to_agents(&mut self) {
-        let billing = self.usage_visible;
+        let billing = self.official_billing_visible();
         let usage_cmd = !self.has_external_auth_provider;
         for agent in self.agents.values_mut() {
             agent.set_billing_surface_visible(billing);
@@ -1560,6 +1568,7 @@ impl AppView {
             plugin_cta_marketplace: None,
             workspace_dashboard_enabled: false,
             usage_visible: true,
+            official_usage: false,
             has_external_auth_provider: false,
             backend_billed: false,
             tier_restricted_commands: Vec::new(),
@@ -4337,6 +4346,7 @@ impl AppView {
         });
         let welcome_default_yolo = self.default_yolo;
         let welcome_auto_gate = self.auto_mode_gate;
+        let welcome_usage_visible = self.official_billing_visible();
         let Self {
             active_view,
             agents,
@@ -4509,7 +4519,7 @@ impl AppView {
                                 chat_mode: self.chat_mode,
                                 credit_balance: self.credit_balance.as_ref(),
                                 auto_topup: self.auto_topup.as_ref(),
-                                usage_visible: self.usage_visible,
+                                usage_visible: welcome_usage_visible,
                                 is_api_key_auth: self.is_api_key_auth,
                                 changelog_bullets: &self.changelog_bullets,
                                 changelog_has_full_notes: self.changelog_markdown.is_some(),

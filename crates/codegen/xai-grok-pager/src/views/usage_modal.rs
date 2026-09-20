@@ -62,6 +62,22 @@ impl UsageInfoTab {
             None => UsageInfoTab::ContextUsage,
         }
     }
+
+    /// Tabs shown in the `/usage` modal. Official **Usage limit** is hidden unless opted in.
+    pub fn visible(official_usage: bool) -> Vec<Self> {
+        Self::ALL
+            .into_iter()
+            .filter(|tab| official_usage || *tab != Self::UsageLimit)
+            .collect()
+    }
+
+    pub fn clamp_visible(self, official_usage: bool) -> Self {
+        if self == Self::UsageLimit && !official_usage {
+            Self::ContextUsage
+        } else {
+            self
+        }
+    }
 }
 
 /// Account/session facts captured when the modal opens.
@@ -70,6 +86,8 @@ pub struct UsageInfoContext {
     pub session_id: Option<String>,
     /// False for team/enterprise accounts, which have no consumer billing.
     pub usage_visible: bool,
+    /// Fork opt-in for official xAI quota / **Usage limit** chrome. Session token totals stay available either way.
+    pub official_usage: bool,
     /// True for gateway chat sessions, which have no Build coding credits.
     pub chat_kind: bool,
     /// Remote-settings kill switch: link out instead of showing billing.
@@ -165,8 +183,9 @@ impl TextDrag {
 
 impl UsageInfoModalState {
     pub fn new(tab: UsageInfoTab, ctx: UsageInfoContext) -> Self {
+        let tab = tab.clamp_visible(ctx.official_usage);
         Self {
-            window: ModalWindowState::with_tabs(UsageInfoTab::ALL.len()),
+            window: ModalWindowState::with_tabs(UsageInfoTab::visible(ctx.official_usage).len()),
             active_tab: tab,
             scroll: 0,
             ctx,
@@ -188,6 +207,7 @@ impl UsageInfoModalState {
     }
 
     pub fn set_tab(&mut self, tab: UsageInfoTab) {
+        let tab = tab.clamp_visible(self.ctx.official_usage);
         if self.active_tab != tab {
             self.active_tab = tab;
             self.scroll = 0;
@@ -245,14 +265,21 @@ impl UsageInfoModalState {
     }
 
     fn step_tab(&mut self, forward: bool) {
-        let n = UsageInfoTab::ALL.len();
-        let i = self.active_tab.index();
+        let tabs = UsageInfoTab::visible(self.ctx.official_usage);
+        let n = tabs.len();
+        if n == 0 {
+            return;
+        }
+        let i = tabs
+            .iter()
+            .position(|t| *t == self.active_tab)
+            .unwrap_or(0);
         let next = if forward {
             (i + 1) % n
         } else {
             (i + n - 1) % n
         };
-        self.set_tab(UsageInfoTab::from_index(next));
+        self.set_tab(tabs[next]);
     }
 }
 
@@ -310,7 +337,10 @@ pub fn route_usage_modal_mouse(
     match mw::handle_modal_mouse(&mut state.window, kind, column, row) {
         mw::ModalWindowOutcome::CloseRequested => UsageModalOutcome::Close,
         mw::ModalWindowOutcome::TabChanged(idx) => {
-            state.set_tab(UsageInfoTab::from_index(idx));
+            let tabs = UsageInfoTab::visible(state.ctx.official_usage);
+            if let Some(&tab) = tabs.get(idx) {
+                state.set_tab(tab);
+            }
             UsageModalOutcome::Changed
         }
         mw::ModalWindowOutcome::ShortcutActivated(id) => {
@@ -369,8 +399,11 @@ fn handle_usage_modal_key(state: &mut UsageInfoModalState, key: &KeyEvent) -> Us
             state.step_tab(false);
             UsageModalOutcome::Changed
         }
-        KeyCode::Char(c @ '1'..='3') => {
-            state.set_tab(UsageInfoTab::from_index(c as usize - '1' as usize));
+        KeyCode::Char(c @ '1'..='9') => {
+            let tabs = UsageInfoTab::visible(state.ctx.official_usage);
+            if let Some(&tab) = tabs.get(c as usize - '1' as usize) {
+                state.set_tab(tab);
+            }
             UsageModalOutcome::Changed
         }
         KeyCode::Up | KeyCode::Char('k') => {
@@ -561,12 +594,13 @@ pub fn render_usage_modal(
     compact: bool,
     theme: &Theme,
 ) {
-    let labels_owned: Vec<_> = UsageInfoTab::ALL
-        .iter()
-        .map(|t| xai_grok_i18n::t(t.label()))
-        .collect();
+    let tabs = UsageInfoTab::visible(state.ctx.official_usage);
+    let labels_owned: Vec<_> = tabs.iter().map(|t| xai_grok_i18n::t(t.label())).collect();
     let labels: Vec<&str> = labels_owned.iter().map(|s| s.as_ref()).collect();
-    state.window.active_tab = state.active_tab.index();
+    state.window.active_tab = tabs
+        .iter()
+        .position(|t| *t == state.active_tab)
+        .unwrap_or(0);
 
     let mut shortcuts: Vec<Shortcut> = vec![
         Shortcut {
@@ -864,19 +898,23 @@ fn muted_line(theme: &Theme, s: impl Into<String>) -> Line<'static> {
 }
 
 fn context_tab_lines(state: &UsageInfoModalState, theme: &Theme, width: u16) -> Vec<Line<'static>> {
-    if let Some(error) = &state.context_error {
-        return vec![muted_line(
+    let mut lines = if let Some(error) = &state.context_error {
+        vec![muted_line(
             theme,
             format!("Couldn't load context usage: {error}"),
-        )];
+        )]
+    } else if let Some(block) = &state.context {
+        block.lines_for_width(theme, width)
+    } else if state.ctx.session_id.is_none() {
+        vec![muted_line(theme, "No active session.")]
+    } else {
+        vec![muted_line(theme, "Loading context usage\u{2026}")]
+    };
+    // When official quota chrome is off, session token totals still live on `/usage`.
+    if !state.ctx.official_usage {
+        append_session_usage_lines(state, theme, &mut lines);
     }
-    if let Some(block) = &state.context {
-        return block.lines_for_width(theme, width);
-    }
-    if state.ctx.session_id.is_none() {
-        return vec![muted_line(theme, "No active session.")];
-    }
-    vec![muted_line(theme, "Loading context usage\u{2026}")]
+    lines
 }
 
 /// Account allowance followed by this session's token/cost totals.
@@ -903,6 +941,15 @@ fn usage_limit_lines(
         lines.push(muted_line(theme, "No billing data available."));
     }
 
+    append_session_usage_lines(state, theme, &mut lines);
+    lines
+}
+
+fn append_session_usage_lines(
+    state: &UsageInfoModalState,
+    theme: &Theme,
+    lines: &mut Vec<Line<'static>>,
+) {
     if let Some(usage_text) = &state.session_usage_text {
         if !lines.is_empty() {
             lines.push(Line::default());
@@ -920,7 +967,6 @@ fn usage_limit_lines(
         }
         lines.push(muted_line(theme, "Loading session usage\u{2026}"));
     }
-    lines
 }
 
 fn allowance_lines(
@@ -1089,6 +1135,7 @@ mod tests {
             UsageInfoContext {
                 session_id: Some("sid-123".to_string()),
                 usage_visible: true,
+                official_usage: true,
                 chat_kind: false,
                 billing_redirect_url: None,
                 subscription_tier: Some("SuperGrok".to_string()),
@@ -1200,6 +1247,60 @@ mod tests {
                 .first()
                 .is_some_and(|l| l.to_string().contains("Loading session usage"))
         );
+    }
+
+    #[test]
+    fn official_usage_off_hides_usage_limit_tab_and_keeps_session_tokens() {
+        let ctx = UsageInfoContext {
+            session_id: Some("sid-123".to_string()),
+            usage_visible: true,
+            official_usage: false,
+            chat_kind: false,
+            billing_redirect_url: None,
+            subscription_tier: Some("SuperGrok".to_string()),
+        };
+        let mut state = UsageInfoModalState::new(UsageInfoTab::UsageLimit, ctx);
+        assert_eq!(
+            state.active_tab,
+            UsageInfoTab::ContextUsage,
+            "Usage limit must not open when official usage is off"
+        );
+        assert_eq!(
+            UsageInfoTab::visible(false).as_slice(),
+            &[UsageInfoTab::ContextUsage, UsageInfoTab::SessionInfo]
+        );
+
+        state.session_usage_text = Some("Session usage\n1,234 tokens".to_string());
+        let theme = Theme::current();
+        let lines = context_tab_lines(&state, &theme, 80);
+        let text: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
+        assert!(
+            text.iter().any(|l| l.contains("Session usage")),
+            "session token totals must stay on /usage: {text:?}"
+        );
+        assert!(
+            !text.iter().any(|l| l.contains("managed by your team")),
+            "must not pretend team billing when the official tab is simply off: {text:?}"
+        );
+
+        let area = Rect::new(0, 0, 80, 24);
+        let mut buf = Buffer::empty(area);
+        render_usage_modal(&mut buf, area, &mut state, None, false, &theme);
+        let painted: String = (0..area.height)
+            .map(|y| {
+                (0..area.width)
+                    .filter_map(|x| buf.cell((x, y)).map(|c| c.symbol().to_string()))
+                    .collect::<String>()
+                    + "\n"
+            })
+            .collect();
+        assert!(
+            !painted.contains("Usage limit"),
+            "Usage limit tab must stay hidden:\n{painted}"
+        );
+        assert!(painted.contains("Context usage"));
+        assert!(painted.contains("Session info"));
+        assert_eq!(state.window.tab_rects.len(), 2);
     }
 
     #[test]

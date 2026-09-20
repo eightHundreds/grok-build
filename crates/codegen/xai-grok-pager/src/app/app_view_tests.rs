@@ -285,6 +285,7 @@ pub(crate) fn test_app() -> AppView {
         plugin_cta_marketplace: None,
         workspace_dashboard_enabled: false,
         usage_visible: true,
+        official_usage: true,
         has_external_auth_provider: false,
         backend_billed: false,
         tier_restricted_commands: Vec::new(),
@@ -2081,6 +2082,20 @@ fn apply_auth_meta_enables_billing_surface_for_personal_users() {
     let meta = xai_grok_login::AuthMeta::default();
     app.apply_auth_meta(&meta);
     assert!(app.usage_visible);
+}
+#[test]
+fn official_usage_off_keeps_billing_surface_hidden_for_personal_users() {
+    let mut app = test_app();
+    app.official_usage = false;
+    app.apply_auth_meta(&xai_grok_login::AuthMeta::default());
+    assert!(app.usage_visible, "consumer account is unchanged");
+    assert!(!app.official_billing_visible());
+    assert!(
+        !app.welcome_prompt
+            .slash_controller
+            .billing_surface_visible()
+    );
+    assert!(app.welcome_prompt.slash_controller.usage_command_visible());
 }
 #[test]
 fn apply_auth_meta_clears_api_key_flag_and_restores_billing_on_personal_login() {
@@ -5775,6 +5790,7 @@ fn dashboard_usage_modal_is_scroll_blocking() {
         UsageInfoContext {
             session_id: None,
             usage_visible: true,
+            official_usage: true,
             chat_kind: false,
             billing_redirect_url: None,
             subscription_tier: None,

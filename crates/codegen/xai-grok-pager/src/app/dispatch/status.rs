@@ -53,6 +53,7 @@ pub(super) fn open_usage_info_modal(
         return vec![];
     };
     let usage_visible = app.usage_visible;
+    let official_usage = app.official_usage;
     let redirect_url = app.usage_billing_redirect_url.clone();
     let tier = app.subscription_tier.clone();
     let show_resolved_model = app.show_resolved_model;
@@ -66,13 +67,15 @@ pub(super) fn open_usage_info_modal(
         return vec![];
     }
 
-    let billing_reachable = usage_visible && !agent.chat_kind && redirect_url.is_none();
+    let billing_reachable =
+        official_usage && usage_visible && !agent.chat_kind && redirect_url.is_none();
     let nonce = next_usage_fetch_nonce();
     let mut state = UsageInfoModalState::new(
         tab,
         UsageInfoContext {
             session_id: session_id.as_ref().map(|s| s.0.to_string()),
             usage_visible,
+            official_usage,
             chat_kind: agent.chat_kind,
             billing_redirect_url: redirect_url,
             subscription_tier: tier,
@@ -123,11 +126,13 @@ fn open_dashboard_usage_modal(
     use crate::views::usage_modal::{UsageInfoContext, UsageInfoModalState};
 
     let chat_kind = app.chat_mode;
-    let billing_reachable =
-        app.usage_visible && !chat_kind && app.usage_billing_redirect_url.is_none();
+    let billing_reachable = app.official_billing_visible()
+        && !chat_kind
+        && app.usage_billing_redirect_url.is_none();
     let ctx = UsageInfoContext {
         session_id: None,
         usage_visible: app.usage_visible,
+        official_usage: app.official_usage,
         chat_kind,
         billing_redirect_url: app.usage_billing_redirect_url.clone(),
         subscription_tier: app.subscription_tier.clone(),
@@ -330,11 +335,16 @@ pub(super) fn dispatch_show_context_info(app: &mut AppView) -> Vec<Effect> {
     }]
 }
 
-/// `/usage`: open the usage modal on its "Usage limit" tab.
-/// Minimal mode keeps the scrollback flow: session token/cost, then consumer credits.
+/// `/usage`: open the usage modal on its "Usage limit" tab when official quota chrome is on.
+/// Otherwise open context / session tokens only. Minimal mode keeps the scrollback flow.
 pub(super) fn dispatch_show_usage(app: &mut AppView) -> Vec<Effect> {
     if !app.screen_mode.is_minimal() {
-        return open_usage_info_modal(app, crate::views::usage_modal::UsageInfoTab::UsageLimit);
+        let tab = if app.official_usage {
+            crate::views::usage_modal::UsageInfoTab::UsageLimit
+        } else {
+            crate::views::usage_modal::UsageInfoTab::ContextUsage
+        };
+        return open_usage_info_modal(app, tab);
     }
     let ActiveView::Agent(id) = app.active_view else {
         return vec![];
@@ -409,7 +419,7 @@ pub(super) fn commit_session_usage_block(
 
 /// Consumer credit follow-up for `/usage` (redirect or non-silent billing fetch).
 pub(super) fn append_consumer_billing_surface(app: &mut AppView, agent_id: AgentId) -> Vec<Effect> {
-    if !app.usage_visible {
+    if !app.official_billing_visible() {
         return vec![];
     }
     // Remote-settings kill switch (`grok_build_usage_redirect_url`): link out instead of fetching billing from the backend
@@ -436,7 +446,7 @@ pub(super) fn append_consumer_billing_surface(app: &mut AppView, agent_id: Agent
 
 /// `/usage manage`: open consumer billing. No-op when the surface is hidden.
 pub(super) fn dispatch_manage_billing(app: &mut AppView) -> Vec<Effect> {
-    if !app.usage_visible {
+    if !app.official_billing_visible() {
         return vec![];
     }
     super::router::dispatch(

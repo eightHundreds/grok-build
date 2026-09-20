@@ -181,7 +181,7 @@ pub(in crate::app::dispatch) fn dispatch_fork_resolved(
         agent.set_voice_mode_available(app.voice_mode_enabled);
         agent.apply_app_scoped_gates(
             app.sharing_enabled,
-            app.usage_visible,
+            app.official_usage && app.usage_visible,
             !app.has_external_auth_provider,
             app.chat_mode,
             app.screen_mode,
