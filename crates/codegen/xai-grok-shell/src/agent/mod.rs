@@ -12,10 +12,12 @@ pub mod folder_trust;
 pub(crate) mod handlers;
 pub mod init;
 pub(crate) mod keychain;
+pub mod media_tool_config;
 pub mod model_providers;
 pub mod mvp_agent;
 pub(crate) mod otel_gate;
 pub(crate) mod proxy;
+pub(crate) mod proxy_headers;
 pub mod relay;
 pub mod remote_config;
 pub(crate) mod restore_code;
@@ -31,6 +33,7 @@ pub mod testkit;
 pub(crate) mod update_chunk_merge;
 
 pub use mvp_agent::MvpAgent;
+pub use mvp_agent::SessionSetupPhase;
 pub use relay::{RelayConfig, RelayHandle, spawn_relay_connection};
 pub use server::{ServerConfig, run_agent_server};
 
