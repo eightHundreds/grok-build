@@ -691,6 +691,9 @@ pub(super) fn finalize_child_view_turn(
         cancel_trigger,
         cancellation_category,
         error_kind,
+        output_tokens,
+        api_duration_ms,
+        time_to_first_token_ms,
         ..
     } = signal;
 
@@ -735,6 +738,9 @@ pub(super) fn finalize_child_view_turn(
         error_banner_present: super::dispatch::scrollback_has_recent_error_banner(
             &child.scrollback,
         ),
+        output_tokens,
+        api_duration_ms,
+        time_to_first_token_ms,
     });
     if other_prompt {
         if let Some(event) = event {

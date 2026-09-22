@@ -2855,7 +2855,7 @@
             assert!(!child.attached_as_viewer);
             assert!(child.pending_turn_end_reconcile.is_none());
             match last_session_event(&child.scrollback) {
-                Some(SessionEvent::TurnCompleted { elapsed: Some(d) }) => {
+                Some(SessionEvent::TurnCompleted { elapsed: Some(d), .. }) => {
                     assert_eq!(d, std::time::Duration::from_millis(50));
                 }
                 other => panic!("expected the old prompt's marker, got {other:?}"),
@@ -3032,7 +3032,7 @@
             assert!(!child.attached_as_viewer);
             assert!(child.pending_turn_end_reconcile.is_none());
             match last_session_event(&child.scrollback) {
-                Some(SessionEvent::TurnCompleted { elapsed: Some(d) }) => {
+                Some(SessionEvent::TurnCompleted { elapsed: Some(d), .. }) => {
                     assert_eq!(d, std::time::Duration::from_millis(50));
                 }
                 other => panic!("expected the previous prompt's marker, got {other:?}"),

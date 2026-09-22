@@ -1530,11 +1530,15 @@ pub(super) fn handle_child_session_notification(
             agent_result,
             error_kind,
             elapsed_ms,
+            usage,
             ..
         } => {
             if NotificationMeta::from_json(meta.and_then(|v| v.as_object())).is_replay {
                 return false;
             }
+            let token_stats =
+                crate::app::turn_completion::TokenStats::from_prompt_usage(usage.as_ref(), None)
+                    .with_meta_ttft(meta);
             let (finished, label) = {
                 let Some(child_view) = agent.child_view_for_live_update_mut(child_sid) else {
                     return false;
@@ -1559,6 +1563,9 @@ pub(super) fn handle_child_session_notification(
                         error_kind: crate::app::error_display::wire_error_kind(
                             error_kind.as_deref(),
                         ),
+                        output_tokens: token_stats.output_tokens,
+                        api_duration_ms: token_stats.api_duration_ms,
+                        time_to_first_token_ms: token_stats.time_to_first_token_ms,
                     },
                     elapsed_ms,
                 );
