@@ -211,6 +211,7 @@ impl ShellToolsetConfig {
             extra_body: indexmap::IndexMap::new(),
             env_http_headers: indexmap::IndexMap::new(),
             context_window: 256_000,
+            max_request_bytes: None,
             client_version: None,
             reasoning_effort: None,
             reasoning_summary: None,

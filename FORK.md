@@ -67,7 +67,7 @@ The turn `Worked for` line also shows output token rate and TTFT when those valu
 
 ## Versioning
 
-Do **not** bump the three-digit crate semver ahead of, or independently from, upstream. `crates/codegen/xai-grok-version/Cargo.toml` stays whatever the last `Synced from monorepo` snapshot shipped (currently `1.0.38`).
+Do **not** bump the three-digit crate semver ahead of, or independently from, upstream. `crates/codegen/xai-grok-version/Cargo.toml` stays whatever the last `Synced from monorepo` snapshot shipped (currently `1.0.41`).
 
 Each published cut is that same X.Y.Z plus a fork suffix:
 
@@ -76,6 +76,7 @@ Each published cut is that same X.Y.Z plus a fork suffix:
 | `1.0.24-fork.1` | first fork cut of upstream 1.0.24（Fork 一） |
 | `1.0.32-fork.1` | first cut after syncing upstream 1.0.32（计数重置） |
 | `1.0.38-fork.1` | first cut after syncing upstream 1.0.38（计数重置） |
+| `1.0.41-fork.1` | first cut after syncing upstream 1.0.41（计数重置） |
 
 `GITHUB_RUN_NUMBER` is **not** used as the patch number (that produced `1.0.3` / `1.0.5` and would eventually pass upstream). Resolver: `.github/scripts/resolve-fork-version.sh`.
 
